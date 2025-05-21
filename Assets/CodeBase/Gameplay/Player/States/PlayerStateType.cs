@@ -1,10 +1,9 @@
-namespace CodeBase.Gameplay.Player
+namespace CodeBase.Gameplay.Player.States
 {
     public enum PlayerStateType
     {
         Idle,
         Move,
-        Jump,
         Dead
     }
 }

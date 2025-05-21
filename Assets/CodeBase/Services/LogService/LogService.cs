@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace CodeBase.Services.LogService
+namespace CodeBase.Services.Log
 {
     public class LogService : ILogService
     {

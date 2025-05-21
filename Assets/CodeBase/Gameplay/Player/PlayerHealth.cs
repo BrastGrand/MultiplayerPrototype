@@ -1,5 +1,4 @@
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Message;
 using Fusion;
 using UnityEngine;
 

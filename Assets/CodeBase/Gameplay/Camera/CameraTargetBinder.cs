@@ -1,4 +1,5 @@
 using UnityEngine;
+using Zenject;
 
 namespace CodeBase.Gameplay.Camera
 {
@@ -7,20 +8,32 @@ namespace CodeBase.Gameplay.Camera
         private CameraFollow _cameraFollow;
 
         [SerializeField] private Transform _targetToFollow;
+        [SerializeField] private int _priority = 0;
 
-        /*
-         //Возникли проблемы с инъекцией, поэтому временно отказался от этого решения и добавил синглтон в CameraFollow
-        [Inject]
+        [Inject(Optional = true)]
         public void Construct(CameraFollow cameraFollow)
         {
             _cameraFollow = cameraFollow;
         }
-        */
 
         private void Start()
         {
-            CameraFollow.Instance.SetFollowTarget(_targetToFollow);
-            //_cameraFollow.SetFollowTarget(_targetToFollow);
+            // Проверяем наличие камеры перед использованием
+            if (_cameraFollow != null)
+            {
+                _cameraFollow.SetFollowTarget(_targetToFollow, _priority);
+                Debug.Log($"CameraTargetBinder: Set camera target to {_targetToFollow.name} via injection");
+            }
+            else if (CameraFollow.Instance != null)
+            {
+                // Запасной вариант - использование синглтона
+                CameraFollow.Instance.SetFollowTarget(_targetToFollow, _priority);
+                Debug.Log($"CameraTargetBinder: Set camera target to {_targetToFollow.name} via singleton");
+            }
+            else
+            {
+                Debug.LogWarning("CameraTargetBinder: No camera follow component found!");
+            }
         }
     }
 }

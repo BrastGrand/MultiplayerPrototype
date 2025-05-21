@@ -14,33 +14,39 @@ namespace CodeBase.UI
         public Canvas Canvas => _canvas;
         public bool IsVisible { get; private set; }
 
-        public virtual async void Show(float fadeDuration = 0.5f)
+        public virtual async UniTask Show(float fadeDuration = 0.5f)
         {
+            if (!gameObject) return;
             _canvas.enabled = true;
             await Fade(0f, 1f, fadeDuration);
+            if (!gameObject) return;
             IsVisible = true;
         }
 
-        public virtual async void Hide(float fadeDuration = 0.5f)
+        public virtual async UniTask Hide(float fadeDuration = 0.5f)
         {
+            if (!gameObject) return;
             await Fade(1f, 0f, fadeDuration);
+            if (!gameObject) return;
             _canvas.enabled = false;
             IsVisible = false;
         }
 
-        private async UniTask Fade(float from, float to, float duration)
+        protected async UniTask Fade(float from, float to, float duration)
         {
+            if (!gameObject || !_canvasGroup) return;
             _canvasGroup.alpha = from;
             float elapsed = 0f;
 
-            while (elapsed < duration)
+            while (elapsed < duration && gameObject && _canvasGroup)
             {
                 _canvasGroup.alpha = Mathf.Lerp(from, to, elapsed / duration);
                 elapsed += Time.deltaTime;
                 await UniTask.Yield();
             }
 
-            _canvasGroup.alpha = to;
+            if (gameObject && _canvasGroup)
+                _canvasGroup.alpha = to;
         }
 
         protected virtual void Awake()

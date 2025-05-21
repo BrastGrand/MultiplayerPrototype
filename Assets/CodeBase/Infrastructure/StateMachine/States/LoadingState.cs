@@ -46,12 +46,14 @@ namespace CodeBase.Infrastructure.StateMachine
             }
         }
 
-        public UniTask Exit()
+        public virtual async UniTask Exit()
         {
             Debug.Log("Loading state exit");
-            _loadingScreen?.Hide(0f);
-            _uiFactory.CloseScreen<LoadingScreen>();
-            return default;
+            if (_loadingScreen != null)
+            {
+                await _loadingScreen.Hide(0f);
+                _uiFactory.CloseScreen<LoadingScreen>();
+            }
         }
     }
 }

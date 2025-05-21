@@ -27,8 +27,6 @@ namespace CodeBase.Gameplay.Medkit
             {
                 runnerProvider.OnRunnerInitialized += OnRunnerInitialized;
             }
-
-            SpawnMedkits();
         }
 
         private void OnRunnerInitialized(NetworkRunner runner)
@@ -41,6 +39,12 @@ namespace CodeBase.Gameplay.Medkit
 
         private void SpawnMedkits()
         {
+            if (_medkitPrefab == null)
+            {
+                Debug.LogError("Medkit prefab is not assigned!");
+                return;
+            }
+
             foreach (var point in _spawnPoints)
             {
                 if (point == null) continue;
@@ -48,7 +52,7 @@ namespace CodeBase.Gameplay.Medkit
             }
         }
 
-        private void SpawnMedkit(Transform point)
+        private async void SpawnMedkit(Transform point)
         {
             if (_runner == null || !_runner.IsServer)
             {
@@ -56,8 +60,18 @@ namespace CodeBase.Gameplay.Medkit
                 return;
             }
 
-            _runner.Spawn(_medkitPrefab, point.position, Quaternion.identity);
+            try
+            {
+                var result = await _runner.SpawnAsync(_medkitPrefab, point.position, Quaternion.identity);
+                if (result == null)
+                {
+                    Debug.LogError($"Failed to spawn medkit at position {point.position}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error spawning medkit: {e.Message}");
+            }
         }
-
     }
 }

@@ -1,4 +1,4 @@
-namespace CodeBase.Services.MessageService
+namespace CodeBase.Services.Message
 {
     public interface IMessage
     {

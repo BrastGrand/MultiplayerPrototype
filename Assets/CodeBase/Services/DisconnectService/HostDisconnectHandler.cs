@@ -1,6 +1,5 @@
 using CodeBase.Infrastructure.StateMachine;
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Message;
 
 namespace CodeBase.Services.DisconnectService
 {

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Message;
 using Fusion;
 using UnityEngine;
 

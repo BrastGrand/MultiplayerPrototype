@@ -1,10 +1,10 @@
 using CodeBase.Services.PlayerSpawnerService;
 
-namespace CodeBase.Services.MessageService.Messages
+namespace CodeBase.Services.Message
 {
     public readonly struct SpawnPointsReadyMessage : IMessage
     {
-        public readonly ISpawnPointsProvider Provider;
+        public ISpawnPointsProvider Provider { get; }
 
         public SpawnPointsReadyMessage(ISpawnPointsProvider provider)
         {

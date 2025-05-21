@@ -1,27 +1,31 @@
+using CodeBase.Services.InputService;
 using Fusion;
 using UnityEngine;
 
 namespace CodeBase.Gameplay.Player
 {
-    public class PlayerMovement : NetworkBehaviour, IPlayerMovement
+    public class PlayerMovement : NetworkBehaviour
     {
-        [SerializeField] private CharacterController _controller;
-        [SerializeField] private float _moveSpeed = 1f;
+        [SerializeField] private float _moveSpeed = 5f;
+        [SerializeField] private float _jumpForce = 5f;
+        [SerializeField] private CharacterController _characterController;
+
+        private const float _GRAVITY = -9.81f;
         private float _rotationSpeed = 120f;
-        private float _gravity = -9.81f;
-
-        private Vector2 _lastMoveInput = Vector2.zero;
-
         private Vector3 _velocity;
+
+        private bool _isGrounded;
 
         public void Initialize(float moveSpeed)
         {
             _moveSpeed = moveSpeed;
         }
 
-        public void Move(Vector2 direction)
+        public void Move(NetworkInputData input)
         {
-            _lastMoveInput = direction;
+            if (!_characterController) return;
+
+            var direction = new Vector2(input.MoveX, input.MoveY);
 
             float forwardInput = direction.y; // W/S
             float turnInput = direction.x;    // A/D
@@ -30,30 +34,38 @@ namespace CodeBase.Gameplay.Player
             if (Mathf.Abs(turnInput) > 0.01f)
             {
                 float rotationAmount = turnInput * _rotationSpeed * Runner.DeltaTime;
-                _controller.transform.Rotate(0f, rotationAmount, 0f);
+                _characterController.transform.Rotate(0f, rotationAmount, 0f);
             }
 
             // Движение вперёд/назад
             if (Mathf.Abs(forwardInput) > 0.01f)
             {
-                Vector3 moveDirection = _controller.transform.forward * forwardInput;
-                _controller.Move(moveDirection * _moveSpeed * Runner.DeltaTime);
+                Vector3 moveDirection = _characterController.transform.forward * forwardInput;
+                _characterController.Move(moveDirection * _moveSpeed * Runner.DeltaTime);
             }
 
-            bool isGrounded = _controller.isGrounded;
+            bool isGrounded = _characterController.isGrounded;
 
-            if (isGrounded && _velocity.y < 0)
+            if (isGrounded)
             {
-                _velocity.y = -2f;
+                _velocity.y = -0.5f;
+
+                if (input.Jump)
+                {
+                    _velocity.y = _jumpForce;
+                }
+            }
+            else
+            {
+                _velocity.y += _GRAVITY * Runner.DeltaTime;
             }
 
-            _velocity.y += _gravity * Runner.DeltaTime;
-            _controller.Move(_velocity * Runner.DeltaTime);
+            _characterController.Move(_velocity * Runner.DeltaTime);
         }
 
-        public bool HasMovementInput()
+        public void Stop()
         {
-            return _lastMoveInput.sqrMagnitude > 0.01f;
+
         }
     }
 }

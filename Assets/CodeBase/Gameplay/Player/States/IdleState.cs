@@ -1,4 +1,5 @@
 using CodeBase.Services.InputService;
+using UnityEngine;
 
 namespace CodeBase.Gameplay.Player.States
 {
@@ -11,20 +12,23 @@ namespace CodeBase.Gameplay.Player.States
             _movement = movement;
         }
 
-        public void Enter() { }
-        public void Tick(NetworkInputData input)
+        public void Enter()
         {
-            if (input.MoveInput.sqrMagnitude > 0.01f)
-                _movement.Move(input.MoveInput);
-
+            _movement.Stop();
         }
 
-        public void Exit() { }
-
-        public bool ShouldTransition(out PlayerStateType nextState)
+        public void Exit()
         {
-            nextState = PlayerStateType.Move;
-            return _movement != null && _movement.HasMovementInput();
+        }
+
+        public PlayerStateType Tick(NetworkInputData input)
+        {
+            if (input.MoveInput.sqrMagnitude > 0.01f)
+            {
+                return PlayerStateType.Move;
+            }
+
+            return PlayerStateType.Idle;
         }
     }
 }

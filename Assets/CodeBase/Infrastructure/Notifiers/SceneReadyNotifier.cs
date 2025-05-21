@@ -1,6 +1,5 @@
 using CodeBase.Infrastructure.StateMachine;
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Message;
 using CodeBase.Services.PlayerSpawnerService;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -12,7 +11,6 @@ namespace CodeBase.Gameplay
     {
         private IGameplayReadyNotifier _readyNotifier;
         private GameStateMachine _stateMachine;
-        private GameLoopStateFactory _loopStateFactory;
         private IMessageService _messageService;
         private ISpawnPointsProvider _spawnPointsProvider;
 
@@ -20,26 +18,31 @@ namespace CodeBase.Gameplay
         private void Construct(
             IGameplayReadyNotifier readyNotifier,
             GameStateMachine stateMachine,
-            GameLoopStateFactory loopStateFactory,
             IMessageService messageService,
             ISpawnPointsProvider spawnPointsProvider)
         {
             _readyNotifier = readyNotifier;
             _stateMachine = stateMachine;
-            _loopStateFactory = loopStateFactory;
             _messageService = messageService;
             _spawnPointsProvider = spawnPointsProvider;
         }
 
         private async void Start()
         {
-            await UniTask.Delay(100);
+            await _readyNotifier.WaitUntilReady();
+            Debug.Log("[SceneReadyNotifier] ReadyNotifier completed");
 
-            _stateMachine.RegisterFactory(_loopStateFactory.Create);
-            _messageService.Publish(new SpawnPointsReadyMessage(_spawnPointsProvider));
+            await UniTask.WaitUntil(() => _spawnPointsProvider != null && _spawnPointsProvider.SpawnPoints.Count > 0);
+            Debug.Log("[SceneReadyNotifier] Spawn points ready");
 
-            Debug.Log("SceneReadyNotifier");
-            _readyNotifier.NotifyReady();
+            _messageService.Publish<SpawnPointsReadyMessage>(new SpawnPointsReadyMessage(_spawnPointsProvider));
+            Debug.Log("[SceneReadyNotifier] Published SpawnPointsReadyMessage");
+
+            await _stateMachine.Enter<GameLoopState>();
+            Debug.Log("[SceneReadyNotifier] Entered GameLoopState");
+
+            _messageService.Publish<SceneReadyMessage>(new SceneReadyMessage());
+            Debug.Log("[SceneReadyNotifier] Published SceneReadyMessage");
         }
     }
 }

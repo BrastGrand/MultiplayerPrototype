@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace CodeBase.Services.MessageService
+namespace CodeBase.Services.Message
 {
     public class MessageService : IMessageService, IDisposable
     {

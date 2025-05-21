@@ -1,6 +1,6 @@
 using Fusion;
 
-namespace CodeBase.Services.MessageService.Messages
+namespace CodeBase.Services.Message
 {
     public class PlayerConnectedMessage : IMessage
     {

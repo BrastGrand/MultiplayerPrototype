@@ -1,85 +1,68 @@
 using CodeBase.Gameplay;
-using CodeBase.Gameplay.Player;
 using CodeBase.Infrastructure.AssetManagement;
 using CodeBase.Infrastructure.SceneManagement;
 using CodeBase.Infrastructure.StateMachine;
-using CodeBase.Services.GameModeService;
+using CodeBase.Services.GameMode;
 using CodeBase.Services.InputService;
-using CodeBase.Services.LogService;
-using CodeBase.Services.MessageService;
+using CodeBase.Services.Log;
+using CodeBase.Services.Message;
 using CodeBase.Services.NetworkService;
 using CodeBase.Services.PlayerSpawnerService;
 using CodeBase.Services.UIService;
-using Fusion;
+using UnityEngine;
 using Zenject;
 
 namespace CodeBase.Infrastructure.Installers
 {
     public class BootstrapInstaller : MonoInstaller
     {
+        [SerializeField] private InputReader _inputReaderPrefab;
+        [SerializeField] private GameObject _gameBootstrapperPrefab;
+        
         public override void InstallBindings()
         {
-            BindSceneLoader();
-            BindGameStateMachine();
-            BindGameBootstrapperFactory();
-
-            Container.Bind<IGameplayReadyNotifier>().To<GameplayReadyNotifier>().AsSingle();
-            Container.Bind<GameLoopStateFactory>().AsSingle();
-            Container.BindInterfacesAndSelfTo<MessageService>().AsSingle();
-            Container.BindInterfacesAndSelfTo<AssetProvider>().AsSingle();
-            Container.BindInterfacesAndSelfTo<LogService>().AsSingle();
-            Container.BindInterfacesAndSelfTo<UIFactory>().AsSingle();
-
+            BindServices();
             BindNetwork();
-            BindInput();
-            BindSpawners();
+            BindStateMachine();
+            InstantiateGameBootstrapper();
         }
 
-        private void BindGameBootstrapperFactory()
+        private void InstantiateGameBootstrapper()
         {
-            Container
-                .BindFactory<GameBootstrapper, GameBootstrapper.Factory>()
-                .FromComponentInNewPrefabResource(InfrastructureAssetPath.GAME_BOOTSTRAPPER);
+            var bootstrapper = Container.InstantiatePrefab(_gameBootstrapperPrefab).GetComponent<GameBootstrapper>();
+            Container.BindInstance(bootstrapper).AsSingle(); // если нужен доступ к нему через DI
         }
-        private void BindSceneLoader() => Container.BindInterfacesAndSelfTo<SceneLoader>().AsSingle();
-        private void BindGameStateMachine() => GameStateMachineInstaller.Install(Container);
+
+        private void BindServices()
+        {
+            Container.Bind<ILogService>().To<LogService>().AsSingle();
+            Container.Bind<IMessageService>().To<MessageService>().AsSingle();
+            Container.Bind<IGameModeService>().To<GameModeService>().AsSingle();
+            Container.Bind<INetworkObjectSpawner>().To<PhotonNetworkSpawner>().AsSingle();
+            Container.Bind<IGameplayReadyNotifier>().To<GameplayReadyNotifier>().AsSingle();
+            Container.Bind<INetworkInputService>().To<NetworkInputService>().AsSingle();
+            Container.Bind<IAssetProvider>().To<AssetProvider>().AsSingle();
+            
+            if (_inputReaderPrefab != null)
+                Container.Bind<IInputReader>().FromInstance(_inputReaderPrefab).AsSingle();
+            else
+                Container.Bind<IInputReader>().FromComponentInNewPrefabResource("InputReader").AsSingle();
+                
+            Container.Bind<IUIFactory>().To<UIFactory>().AsSingle();
+            Container.Bind<ISceneLoader>().To<SceneLoader>().AsSingle();
+            Container.Bind<IPlayerSpawner>().To<PlayerSpawner>().AsSingle();
+        }
 
         private void BindNetwork()
         {
-            Container.Bind<NetworkCallbacks>()
-                .AsSingle()
-                .NonLazy();
-
-            Container.Bind<INetworkRunnerCallbacks>()
-                .To<NetworkCallbacks>()
-                .FromResolve();
-
-            Container.Bind<INetworkCallbacksService>()
-                .To<NetworkCallbacks>()
-                .FromResolve();
-
+            Container.Bind<INetworkService>().To<PhotonNetworkService>().AsSingle();
             Container.Bind<NetworkRunnerProvider>().AsSingle();
-            Container.Bind<NetworkSceneLoadNotifier>().AsSingle().NonLazy();
-            Container.Bind<IGameModeService>().To<GameModeService>().AsSingle();
-            Container.BindInterfacesAndSelfTo<PhotonNetworkService>().AsSingle().NonLazy();
-            Container.Bind<INetworkObjectSpawner>()
-                .To<PhotonNetworkSpawner>()
-                .AsSingle();
         }
-
-        private void BindSpawners()
+        
+        private void BindStateMachine()
         {
-            Container.Bind<IPlayerSpawner>()
-                .To<PlayerSpawner>()
-                .AsSingle();
-
-            Container.BindInterfacesAndSelfTo<RespawnService>().AsSingle().NonLazy();
-        }
-
-        private void BindInput()
-        {
-            Container.Bind<IInputReader>().To<InputReader>().AsSingle().NonLazy();
-            Container.Bind<INetworkInputService>().To<NetworkInputService>().AsSingle();
+            Container.Bind<GameStateMachine>().AsSingle();
+            Container.Bind<StatesFactory>().AsSingle();
         }
     }
 }

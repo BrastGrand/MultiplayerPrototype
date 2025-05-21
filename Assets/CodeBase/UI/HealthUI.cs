@@ -1,5 +1,4 @@
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Message;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,7 +32,7 @@ namespace CodeBase.UI
 
         public void Clear()
         {
-            _messageService.Unsubscribe<HealthChangedMessage>(OnHealthChanged);
+            _messageService?.Unsubscribe<HealthChangedMessage>(OnHealthChanged);
         }
     }
 }

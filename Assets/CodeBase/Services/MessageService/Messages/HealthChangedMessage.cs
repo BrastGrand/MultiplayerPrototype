@@ -1,4 +1,4 @@
-namespace CodeBase.Services.MessageService.Messages
+namespace CodeBase.Services.Message
 {
     public struct HealthChangedMessage : IMessage
     {

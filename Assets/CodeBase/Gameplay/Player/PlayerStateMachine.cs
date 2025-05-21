@@ -1,39 +1,60 @@
 using System;
 using System.Collections.Generic;
 using CodeBase.Services.InputService;
+using CodeBase.Gameplay.Player.States;
+using UnityEngine;
 
 namespace CodeBase.Gameplay.Player
 {
     public class PlayerStateMachine
     {
-        private readonly Dictionary<PlayerStateType, IPlayerState> _states;
-        private IPlayerState _currentState;
-        private PlayerStateType _currentType;
+        private readonly Dictionary<PlayerStateType, States.IPlayerState> _states;
+        private States.IPlayerState _currentState;
+        private PlayerStateType _currentStateType;
 
         public event Action<PlayerStateType> OnStateChanged;
 
-        public PlayerStateMachine(Dictionary<PlayerStateType, IPlayerState> states)
+        public PlayerStateMachine(Dictionary<PlayerStateType, States.IPlayerState> states)
         {
             _states = states;
         }
 
-        public void Enter(PlayerStateType type)
+        public void Enter(PlayerStateType stateType)
         {
-            _currentState?.Exit();
-            _currentType = type;
-            _currentState = _states[_currentType];
-            _currentState.Enter();
+            if (_states.TryGetValue(stateType, out States.IPlayerState state))
+            {
+                if (_currentState != null)
+                {
+                    Debug.Log($"Exiting state {_currentStateType}");
+                    _currentState.Exit();
+                }
 
-            OnStateChanged?.Invoke(type);
+                _currentState = state;
+                _currentStateType = stateType;
+                
+                Debug.Log($"Entering state {stateType}");
+                _currentState.Enter();
+                OnStateChanged?.Invoke(stateType);
+            }
+            else
+            {
+                Debug.LogError($"State {stateType} not found");
+            }
         }
 
         public void Tick(NetworkInputData input)
         {
-            _currentState.Tick(input);
-
-            if (_currentState.ShouldTransition(out var nextState))
+            if (_currentState == null)
             {
-                Enter(nextState);
+                Debug.LogError("Current state is null");
+                return;
+            }
+
+            PlayerStateType nextStateType = _currentState.Tick(input);
+            
+            if (nextStateType != _currentStateType)
+            {
+                Enter(nextStateType);
             }
         }
     }

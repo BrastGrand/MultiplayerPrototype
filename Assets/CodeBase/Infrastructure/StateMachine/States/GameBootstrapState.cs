@@ -1,6 +1,6 @@
 using CodeBase.Infrastructure.AssetManagement;
-using CodeBase.Services.LogService;
-using CodeBase.Services.MessageService;
+using CodeBase.Services.Log;
+using CodeBase.Services.Message;
 using Cysharp.Threading.Tasks;
 
 namespace CodeBase.Infrastructure.StateMachine

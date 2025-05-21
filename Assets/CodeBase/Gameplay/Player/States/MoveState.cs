@@ -11,18 +11,24 @@ namespace CodeBase.Gameplay.Player.States
             _movement = movement;
         }
 
-        public void Enter() { }
-        public void Tick(NetworkInputData input)
+        public void Enter()
         {
-            _movement.Move(input.MoveInput);
         }
 
-        public void Exit() { }
-
-        public bool ShouldTransition(out PlayerStateType nextState)
+        public void Exit()
         {
-            nextState = PlayerStateType.Idle;
-            return _movement != null && !_movement.HasMovementInput();
+            _movement.Stop();
+        }
+
+        public PlayerStateType Tick(NetworkInputData input)
+        {
+            if (input.MoveInput.sqrMagnitude < 0.01f)
+            {
+                return PlayerStateType.Idle;
+            }
+
+            _movement.Move(input);
+            return PlayerStateType.Move;
         }
     }
 }

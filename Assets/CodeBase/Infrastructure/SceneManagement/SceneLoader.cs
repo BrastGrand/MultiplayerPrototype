@@ -1,6 +1,5 @@
-using CodeBase.Services.LogService;
-using CodeBase.Services.MessageService;
-using CodeBase.Services.MessageService.Messages;
+using CodeBase.Services.Log;
+using CodeBase.Services.Message;
 using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -25,10 +24,10 @@ namespace CodeBase.Infrastructure.SceneManagement
         {
             _logService.Log($"Start loading scene: {nextScene}");
 
-            AsyncOperationHandle<SceneInstance> handler = Addressables.LoadSceneAsync(nextScene, LoadSceneMode.Single, false);
+            var handler = SceneManager.LoadSceneAsync(nextScene, LoadSceneMode.Single); // Addressables.LoadSceneAsync(nextScene, LoadSceneMode.Additive, false);
 
             await handler.ToUniTask();
-            await handler.Result.ActivateAsync().ToUniTask();
+            //await handler.Result.ActivateAsync().ToUniTask();
             _logService.Log($"Completed loading scene: {nextScene}");
 
             _messageService.Publish(new SceneLoadedMessage(nextScene));

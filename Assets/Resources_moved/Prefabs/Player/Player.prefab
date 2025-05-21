@@ -1027,8 +1027,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 426011ed382b416fb1c17eda5730ba41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _controller: {fileID: 6464737588845400665}
   _moveSpeed: 2.23
+  _jumpForce: 5
+  _characterController: {fileID: 6464737588845400665}
 --- !u!114 &1007913067835164898
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1093,6 +1094,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _targetToFollow: {fileID: 3533989665011856322}
+  _isPlayerCamera: 0
+  _priority: 0
 --- !u!1 &4293247119850963313
 GameObject:
   m_ObjectHideFlags: 0

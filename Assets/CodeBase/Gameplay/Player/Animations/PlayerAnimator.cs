@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using CodeBase.Gameplay.Player.States;
 using UnityEngine;
 
 namespace CodeBase.Gameplay.Player.Animations

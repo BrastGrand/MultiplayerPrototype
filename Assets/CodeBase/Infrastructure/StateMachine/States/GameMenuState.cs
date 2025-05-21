@@ -29,14 +29,16 @@ namespace CodeBase.Infrastructure.StateMachine
             _menuScreen.OnHostClicked += OnHostClicked;
             _menuScreen.OnJoinClicked += OnJoinClicked;
             _menuScreen.OnQuitClicked += OnQuitClicked;
-            _menuScreen.Show();
+            await _menuScreen.Show();
         }
 
-        public UniTask Exit()
+        public async UniTask Exit()
         {
-            _menuScreen?.Hide();
-            _uiFactory.CloseScreen<MenuScreen>();
-            return UniTask.CompletedTask;
+            if (_menuScreen != null)
+            {
+                await _menuScreen.Hide();
+                _uiFactory.CloseScreen<MenuScreen>();
+            }
         }
 
         private async void OnHostClicked()
@@ -80,16 +82,18 @@ namespace CodeBase.Infrastructure.StateMachine
         {
             await _networkService.StartHost();
             await _stateMachine.Enter<GameLoadingState>();
-            _menuScreen?.Hide(0);
+            if (_menuScreen != null)
+                await _menuScreen.Hide(0);
         }
 
         private async UniTask StartClient()
         {
             await _networkService.StartClient();
             await _stateMachine.Enter<GameLoadingState>();
-            _menuScreen?.Hide(0);
+            if (_menuScreen != null)
+                await _menuScreen.Hide(0);
         }
 
-        public void Dispose() => Exit();
+        public void Dispose() => Exit().Forget();
     }
 }

@@ -1,5 +1,5 @@
-using CodeBase.Services.GameModeService;
-using CodeBase.Services.LogService;
+using CodeBase.Services.GameMode;
+using CodeBase.Services.Log;
 using CodeBase.Services.PlayerSpawnerService;
 using Cysharp.Threading.Tasks;
 using Fusion;
@@ -12,7 +12,10 @@ namespace CodeBase.Infrastructure.StateMachine
         private readonly ILogService _log;
         private readonly IGameModeService _modeService;
 
-        public GameLoopState(IPlayerSpawner playerSpawner, IGameModeService modeService ,ILogService logService)
+        public GameLoopState(
+            IPlayerSpawner playerSpawner, 
+            IGameModeService modeService,
+            ILogService logService)
         {
             _playerSpawner = playerSpawner;
             _modeService = modeService;

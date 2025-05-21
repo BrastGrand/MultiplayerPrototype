@@ -15,4 +15,4 @@ MonoBehaviour:
   _maxHp: 100
   _moveSpeed: 5
   _fallDamageThreshold: 2
-  _fallDamage: 100
+  _fallDamage: 20
