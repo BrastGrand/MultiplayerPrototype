@@ -1,25 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CodeBase.Services.InputService;
 using CodeBase.Services.MessageService;
 using CodeBase.Services.MessageService.Messages;
 using Fusion;
 using Fusion.Sockets;
-using UnityEngine;
 
 namespace CodeBase.Services.NetworkService
 {
     public class NetworkCallbacks : INetworkRunnerCallbacks, INetworkCallbacksService
     {
         private readonly IMessageService _messageService;
+        private readonly INetworkInputService _inputService;
         private readonly HashSet<PlayerRef> _pendingPlayers = new HashSet<PlayerRef>();
         private readonly TaskCompletionSource<bool> _sceneLoadTaskCompleteSource;
 
         public Task SceneLoadCompleted => _sceneLoadTaskCompleteSource.Task;
 
-        public NetworkCallbacks(IMessageService messageService)
+        public NetworkCallbacks(IMessageService messageService, INetworkInputService inputService)
         {
             _messageService = messageService;
+            _inputService = inputService;
             _sceneLoadTaskCompleteSource = new TaskCompletionSource<bool>();
         }
 
@@ -44,7 +46,6 @@ namespace CodeBase.Services.NetworkService
 
         public void OnSceneLoadDone(NetworkRunner runner)
         {
-            Debug.Log($"Publishing PlayerConnected after scene load. {runner.IsServer}");
 
             if (runner.IsServer)
             {
@@ -64,8 +65,30 @@ namespace CodeBase.Services.NetworkService
                 _sceneLoadTaskCompleteSource.SetResult(true);
         }
 
+        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+        {
+            if (runner.GameMode == GameMode.Client)
+            {
+                _messageService.Publish(new HostDisconnectMessage());
+            }
+        }
+
+        public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+        {
+            if (runner.GameMode == GameMode.Client)
+            {
+                _messageService.Publish(new HostDisconnectMessage());
+            }
+        }
+
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
+        }
+
+        public void OnInput(NetworkRunner runner, NetworkInput input)
+        {
+            var data = _inputService.GetInput();
+            input.Set(data);
         }
 
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
@@ -73,14 +96,6 @@ namespace CodeBase.Services.NetworkService
         }
 
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
-        {
-        }
-
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-        {
-        }
-
-        public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
         {
         }
 
@@ -101,10 +116,6 @@ namespace CodeBase.Services.NetworkService
         }
 
         public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress)
-        {
-        }
-
-        public void OnInput(NetworkRunner runner, NetworkInput input)
         {
         }
 

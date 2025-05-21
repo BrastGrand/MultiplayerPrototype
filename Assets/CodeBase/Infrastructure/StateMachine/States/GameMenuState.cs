@@ -35,7 +35,7 @@ namespace CodeBase.Infrastructure.StateMachine
         public UniTask Exit()
         {
             _menuScreen?.Hide();
-            _uiFactory.Dispose(_SCREEN_NAME);
+            _uiFactory.CloseScreen<MenuScreen>();
             return UniTask.CompletedTask;
         }
 

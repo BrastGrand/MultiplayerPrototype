@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using CodeBase.Gameplay;
+using CodeBase.Gameplay.Player;
 using CodeBase.Services.GameModeService;
 using CodeBase.Services.LogService;
 using CodeBase.Services.MessageService;
@@ -7,6 +9,7 @@ using CodeBase.Services.MessageService.Messages;
 using CodeBase.Services.NetworkService;
 using Cysharp.Threading.Tasks;
 using Fusion;
+using Zenject;
 using Random = UnityEngine.Random;
 
 namespace CodeBase.Services.PlayerSpawnerService
@@ -18,6 +21,8 @@ namespace CodeBase.Services.PlayerSpawnerService
         private readonly IGameModeService _modeService;
         private readonly ILogService _log;
         private readonly INetworkCallbacksService _callbacksService;
+        private readonly DiContainer _container;
+        private readonly IGameplayReadyNotifier _readyNotifier;
 
         private readonly TaskCompletionSource<ISpawnPointsProvider> _spawnPointsTaskCompletionSource = new TaskCompletionSource<ISpawnPointsProvider>();
 
@@ -28,13 +33,17 @@ namespace CodeBase.Services.PlayerSpawnerService
             IMessageService messageService,
             IGameModeService modeService,
             ILogService logService,
-            INetworkCallbacksService callbacksService)
+            INetworkCallbacksService callbacksService,
+            DiContainer container,
+            IGameplayReadyNotifier readyNotifier)
         {
             _networkSpawner = spawner;
             _messageService = messageService;
             _modeService = modeService;
             _log = logService;
             _callbacksService = callbacksService;
+            _container = container;
+            _readyNotifier = readyNotifier;
 
             _messageService.Subscribe<SpawnPointsReadyMessage>(OnSpawnPointsReady);
             _messageService.Subscribe<PlayerConnectedMessage>(OnPlayerConnected);
@@ -62,6 +71,8 @@ namespace CodeBase.Services.PlayerSpawnerService
         {
             _log.Log("Player Spawner SpawnPlayerInternal");
 
+            await _readyNotifier.WaitUntilReady();
+
             //ждем загрузку сцены
             await _callbacksService.SceneLoadCompleted;
 
@@ -69,8 +80,21 @@ namespace CodeBase.Services.PlayerSpawnerService
             var provider = await _spawnPointsTaskCompletionSource.Task;
 
             var spawnPoint = provider.SpawnPoints[Random.Range(0, provider.SpawnPoints.Count)];
-            _networkSpawner.SpawnPlayer(playerRef, spawnPoint.position, spawnPoint.rotation);
+            _networkSpawner.SpawnPlayer(playerRef, spawnPoint.position, spawnPoint.rotation, OnSpawnedPlayer);
+
             OnPlayerSpawned?.Invoke(playerRef);
+        }
+
+        private async void OnSpawnedPlayer(NetworkPlayer player)
+        {
+            if (player != null)
+            {
+                _container.InjectGameObject(player.gameObject);
+                await UniTask.NextFrame();
+                await _readyNotifier.WaitUntilReady();
+
+                player.Initialize();
+            }
         }
 
         public void Dispose()

@@ -1,7 +1,7 @@
+using CodeBase.Services.InputService;
 using CodeBase.Services.MessageService;
 using Cysharp.Threading.Tasks;
 using Fusion;
-using FusionDemo;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -12,12 +12,14 @@ namespace CodeBase.Services.NetworkService
         private readonly NetworkRunnerProvider _runnerProvider;
         private readonly IMessageService _messageService;
         private readonly INetworkCallbacksService _networkCallbacksService;
+        private readonly INetworkInputService _inputService;
 
-        public PhotonNetworkService(NetworkRunnerProvider runnerProvider,  IMessageService messageService, INetworkCallbacksService callbacksService)
+        public PhotonNetworkService(NetworkRunnerProvider runnerProvider,  IMessageService messageService, INetworkCallbacksService callbacksService, INetworkInputService inputService)
         {
             _runnerProvider = runnerProvider;
             _messageService = messageService;
             _networkCallbacksService = callbacksService;
+            _inputService = inputService;
         }
 
         public async UniTask StartHost()
@@ -25,8 +27,7 @@ namespace CodeBase.Services.NetworkService
             var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
             runner.ProvideInput = true;
             runner.AddComponent<NetworkSceneManagerDefault>();
-            runner.AddComponent<DemoInputPooling>();
-            runner.AddCallbacks(new NetworkCallbacks(_messageService));
+            runner.AddCallbacks(new NetworkCallbacks(_messageService, _inputService));
             _runnerProvider.Initialize(runner);
 
             await runner.StartGame(new StartGameArgs
@@ -42,7 +43,8 @@ namespace CodeBase.Services.NetworkService
         public async UniTask StartClient()
         {
             var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
-            runner.AddCallbacks(new NetworkCallbacks(_messageService));
+            runner.ProvideInput = true;
+            runner.AddCallbacks(new NetworkCallbacks(_messageService, _inputService));
             _runnerProvider.Initialize(runner);
 
             await runner.StartGame(new StartGameArgs

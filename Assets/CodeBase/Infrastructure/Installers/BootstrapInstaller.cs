@@ -1,8 +1,10 @@
 using CodeBase.Gameplay;
+using CodeBase.Gameplay.Player;
 using CodeBase.Infrastructure.AssetManagement;
 using CodeBase.Infrastructure.SceneManagement;
 using CodeBase.Infrastructure.StateMachine;
 using CodeBase.Services.GameModeService;
+using CodeBase.Services.InputService;
 using CodeBase.Services.LogService;
 using CodeBase.Services.MessageService;
 using CodeBase.Services.NetworkService;
@@ -29,6 +31,7 @@ namespace CodeBase.Infrastructure.Installers
             Container.BindInterfacesAndSelfTo<UIFactory>().AsSingle();
 
             BindNetwork();
+            BindInput();
             BindSpawners();
         }
 
@@ -69,6 +72,14 @@ namespace CodeBase.Infrastructure.Installers
             Container.Bind<IPlayerSpawner>()
                 .To<PlayerSpawner>()
                 .AsSingle();
+
+            Container.BindInterfacesAndSelfTo<RespawnService>().AsSingle().NonLazy();
+        }
+
+        private void BindInput()
+        {
+            Container.Bind<IInputReader>().To<InputReader>().AsSingle().NonLazy();
+            Container.Bind<INetworkInputService>().To<NetworkInputService>().AsSingle();
         }
     }
 }

@@ -33,10 +33,12 @@ namespace CodeBase.Gameplay
 
         private async void Start()
         {
-            await UniTask.DelayFrame(1);
+            await UniTask.Delay(100);
 
             _stateMachine.RegisterFactory(_loopStateFactory.Create);
             _messageService.Publish(new SpawnPointsReadyMessage(_spawnPointsProvider));
+
+            Debug.Log("SceneReadyNotifier");
             _readyNotifier.NotifyReady();
         }
     }

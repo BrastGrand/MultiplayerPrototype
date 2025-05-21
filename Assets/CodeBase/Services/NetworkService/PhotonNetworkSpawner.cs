@@ -1,3 +1,5 @@
+using System;
+using CodeBase.Gameplay.Player;
 using CodeBase.Infrastructure.AssetManagement;
 using Fusion;
 using UnityEngine;
@@ -15,12 +17,16 @@ namespace CodeBase.Services.NetworkService
             _assetProvider = assetProvider;
         }
 
-        public async void SpawnPlayer(PlayerRef player, Vector3 position, Quaternion rotation)
+        public async void SpawnPlayer(PlayerRef player, Vector3 position, Quaternion rotation, Action<NetworkPlayer> onSpawnedPlayer)
         {
-            if (!_runnerProvider.IsServer) return;
-
+            if (!_runnerProvider.IsServer)
+            {
+                return;
+            }
             var playerPrefab = await _assetProvider.Load<GameObject>(AssetLabels.PLAYER);
-            _runnerProvider.Runner.SpawnAsync(playerPrefab.GetComponent<NetworkObject>(), position, rotation, player);
+            var task = await _runnerProvider.Runner.SpawnAsync(playerPrefab.GetComponent<NetworkObject>(), position, rotation, player);
+            NetworkPlayer networkPlayer = task.GetComponent<NetworkPlayer>();
+            onSpawnedPlayer?.Invoke(networkPlayer);
         }
 
         public async void SpawnNetworkObject(string prefabKey, Vector3 position)

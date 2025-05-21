@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Default Local Group
   m_GUID: 6590d13317b9cdd4385240633fb66235
   m_SerializeEntries:
+  - m_GUID: 438037f8f15495140947ac6d595db1a1
+    m_Address: PlayerSettings
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 6aaf92aa567f1214bbb31d63c9172501
     m_Address: MenuScreen
     m_ReadOnly: 0
@@ -26,13 +31,18 @@ MonoBehaviour:
     m_SerializedLabels:
     - Scenes
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ad68526a377a6a446a68c708c62790af
+  - m_GUID: a28790eda0de03a49836f7b81f34672e
     m_Address: Player
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: be5a5663907562d4988eab5c0e04dcf4
     m_Address: LoadingScreen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e2040610130a73245aedc9fb9f8d9718
+    m_Address: Assets/Imported/Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_Blue.mat
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

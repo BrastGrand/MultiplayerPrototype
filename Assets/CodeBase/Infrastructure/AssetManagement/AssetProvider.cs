@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
@@ -12,16 +14,40 @@ namespace CodeBase.Infrastructure.AssetManagement
 
         public async UniTask InitializeAsync() => await Addressables.InitializeAsync().ToUniTask();
 
-        public async UniTask<TAsset> Load<TAsset>(string key) where TAsset : class
+        public async Task<TAsset> Load<TAsset>(string key) where TAsset : class
         {
-            if (!_assetRequests.TryGetValue(key, out var handle))
+            var validateAddress = Addressables.LoadResourceLocationsAsync(key);
+            await validateAddress.Task;
+
+            if (validateAddress.Status != AsyncOperationStatus.Succeeded || validateAddress.Result.Count == 0)
             {
-                handle = Addressables.LoadAssetAsync<TAsset>(key);
-                _assetRequests.Add(key, handle);
+                Debug.LogError($"Ресурсы по имени {key} не найдены или загрузка завершилась ошибкой.");
+                Addressables.Release(validateAddress);
+                return null;
             }
 
-            await handle.ToUniTask();
-            return handle.Result as TAsset;
+            var handle = Addressables.LoadAssetAsync<TAsset>(key);
+            try
+            {
+                await handle.Task;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Ошибка при загрузке ассета {key}: {e}");
+                Addressables.Release(handle);
+                return null;
+            }
+
+            if (handle.Status == AsyncOperationStatus.Succeeded)
+            {
+                return handle.Result as TAsset;
+            }
+            else
+            {
+                Debug.LogError($"Загрузка ассета {key} завершилась с ошибкой. Статус: {handle.Status}");
+                Addressables.Release(handle);
+                return null;
+            }
         }
 
         public async UniTask<TAsset> Load<TAsset>(AssetReference assetReference) where TAsset : class => await Load<TAsset>(assetReference.AssetGUID);
@@ -43,14 +69,14 @@ namespace CodeBase.Infrastructure.AssetManagement
             return assetKeys;
         }
 
-        public async UniTask<TAsset[]> LoadAll<TAsset>(List<string> keys) where TAsset : class
+        public async Task<TAsset[]> LoadAll<TAsset>(List<string> keys) where TAsset : class
         {
-            List<UniTask<TAsset>> tasks = new List<UniTask<TAsset>>(keys.Count);
+            List<Task<TAsset>> tasks = new List<Task<TAsset>>(keys.Count);
 
             foreach (var key in keys)
                 tasks.Add(Load<TAsset>(key));
 
-            return await UniTask.WhenAll(tasks);
+            return await Task.WhenAll(tasks);
         }
 
         public async UniTask WarmupAssetsByLabel(string label)

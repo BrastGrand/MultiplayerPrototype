@@ -50,7 +50,7 @@ namespace CodeBase.Infrastructure.StateMachine
         {
             Debug.Log("Loading state exit");
             _loadingScreen?.Hide(0f);
-            _uiFactory.Dispose(_SCREEN_NAME);
+            _uiFactory.CloseScreen<LoadingScreen>();
             return default;
         }
     }
