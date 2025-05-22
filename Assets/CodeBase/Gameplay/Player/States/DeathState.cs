@@ -4,7 +4,7 @@ namespace CodeBase.Gameplay.Player.States
 {
     public class DeathState : IPlayerState
     {
-        public DeathState(PlayerHealth health)
+        public DeathState()
         {
         }
 

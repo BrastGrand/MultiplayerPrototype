@@ -28,14 +28,8 @@ namespace CodeBase.Gameplay.Player
         private PlayerStateMachine _stateMachine;
         private PlayerHealth _health;
         private PlayerSettings _playerSettings;
-        private DiContainer _container;
 
         public bool IsInitialized { get; private set; }
-
-        public void SetDiContainer(DiContainer container)
-        {
-            _container = container;
-        }
 
         public async Task Initialize()
         {
@@ -57,7 +51,7 @@ namespace CodeBase.Gameplay.Player
             {
                 { PlayerStateType.Idle, new IdleState(movement) },
                 { PlayerStateType.Move, new MoveState(movement) },
-                { PlayerStateType.Dead, new DeathState(_health) }
+                { PlayerStateType.Dead, new DeathState() }
             };
 
             _stateMachine = new PlayerStateMachine(states);
@@ -140,7 +134,6 @@ namespace CodeBase.Gameplay.Player
                     return;
                 }
 
-                _container?.Inject(spawnedObject.gameObject);
                 Debug.Log($"Server spawned player for {player}");
             }
             catch (Exception e)

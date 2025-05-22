@@ -26,6 +26,7 @@ namespace CodeBase.Infrastructure.Installers
             Container.Bind<IHealthService>().To<HealthService>().AsSingle();
 
             Container.Bind<IHostDisconnectHandler>().To<HostDisconnectHandler>().AsSingle();
+            Container.Bind<IRespawnService>().To<RespawnService>().AsSingle().NonLazy();
 
             // Уведомляем о готовности игрового процесса
             var readyNotifier = Container.Resolve<IGameplayReadyNotifier>();

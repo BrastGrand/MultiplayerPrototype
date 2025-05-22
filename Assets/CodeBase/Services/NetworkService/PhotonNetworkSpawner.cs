@@ -12,13 +12,11 @@ namespace CodeBase.Services.NetworkService
     {
         private readonly NetworkRunnerProvider _runnerProvider;
         private readonly IAssetProvider _assetProvider;
-        private readonly DiContainer _container;
 
-        public PhotonNetworkSpawner(NetworkRunnerProvider runnerProvider, IAssetProvider assetProvider, DiContainer container)
+        public PhotonNetworkSpawner(NetworkRunnerProvider runnerProvider, IAssetProvider assetProvider)
         {
             _runnerProvider = runnerProvider;
             _assetProvider = assetProvider;
-            _container = container;
         }
 
         public async void SpawnPlayer(PlayerRef player, Vector3 position, Quaternion rotation, Action<NetworkPlayer> onSpawnedPlayer)
@@ -96,7 +94,6 @@ namespace CodeBase.Services.NetworkService
                             if (networkPlayer != null)
                             {
                                 Debug.Log($"Found server object to send RPC: {obj.Id}");
-                                networkPlayer.SetDiContainer(_container);
                                 networkPlayer.RPC_RequestSpawnPlayer(player, position, rotation);
                                 return;
                             }
