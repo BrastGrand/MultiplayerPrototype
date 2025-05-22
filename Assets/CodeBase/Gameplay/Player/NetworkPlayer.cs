@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CodeBase.Gameplay.Camera;
 using CodeBase.Gameplay.Player.Animations;
 using CodeBase.Gameplay.Player.States;
 using CodeBase.Infrastructure.AssetManagement;
@@ -18,6 +19,7 @@ namespace CodeBase.Gameplay.Player
     {
         [SerializeField] private HealthUI _healthUI;
         [SerializeField] private PlayerAnimator _playerAnimator;
+        [SerializeField] private CameraTargetBinder _cameraTargetBinder;
 
         [Inject] private INetworkInputService _inputService;
         [Inject] private IMessageService _messageService;
@@ -26,14 +28,19 @@ namespace CodeBase.Gameplay.Player
         private PlayerStateMachine _stateMachine;
         private PlayerHealth _health;
         private PlayerSettings _playerSettings;
-        private Camera.CameraFollow _cameraFollow;
+        private DiContainer _container;
 
         public bool IsInitialized { get; private set; }
+
+        public void SetDiContainer(DiContainer container)
+        {
+            _container = container;
+        }
 
         public async Task Initialize()
         {
             Debug.Log($"NetworkPlayer Initialize. HasStateAuthority: {HasStateAuthority}, HasInputAuthority: {Object.HasInputAuthority}, Object: {Object.Id}");
-            
+
             _playerSettings = await _assetProvider.Load<PlayerSettings>("PlayerSettings");
             Debug.Log("PlayerSettings loaded");
 
@@ -57,24 +64,27 @@ namespace CodeBase.Gameplay.Player
             _stateMachine.Enter(PlayerStateType.Idle);
             Debug.Log("State machine initialized");
 
-            if(_playerAnimator != null)
-                _stateMachine.OnStateChanged += _playerAnimator.Play;
-
+            _stateMachine.OnStateChanged += _playerAnimator.Play;
             _messageService.Subscribe<PlayerDiedMessage>(OnPlayerDied);
             _fallDamageService.Track(Object, _playerSettings.FallDamage);
 
-            if (_healthUI != null)
-            {
-                _healthUI.Initialize(_playerSettings.MaxHp, _messageService);
-                _healthUI.gameObject.SetActive(true);
-            }
-
             if (Object.HasInputAuthority)
             {
-                _inputService.Enable();
                 Debug.Log("Input enabled for local player");
+
+                _inputService.Enable();
+
+                if (_healthUI != null)
+                {
+                    _healthUI.Initialize(_playerSettings.MaxHp, _messageService);
+                    _healthUI.gameObject.SetActive(true);
+                }
             }
-            
+            else
+            {
+                _healthUI?.gameObject.SetActive(false);
+            }
+
             IsInitialized = true;
             Debug.Log("Player fully initialized");
         }
@@ -85,6 +95,12 @@ namespace CodeBase.Gameplay.Player
 
             if (Object.HasInputAuthority)
             {
+                _cameraTargetBinder.Initialize();
+            }
+
+            if (!Object.HasStateAuthority)
+            {
+                Initialize();
             }
         }
 
@@ -124,6 +140,7 @@ namespace CodeBase.Gameplay.Player
                     return;
                 }
 
+                _container?.Inject(spawnedObject.gameObject);
                 Debug.Log($"Server spawned player for {player}");
             }
             catch (Exception e)
@@ -136,20 +153,10 @@ namespace CodeBase.Gameplay.Player
         {
             if (!IsInitialized) return;
 
-            // Проверяем наличие сетевого ввода
             if (GetInput(out NetworkInputData data))
             {
-                // Подробное логирование ввода для отладки
-                Vector2 moveInput = data.MoveInput;  // Используем свойство для удобства
-                if (moveInput.sqrMagnitude > 0.01f || data.Jump)
-                {
-                    Debug.Log($"Player {Object.Id} received network input: Move=({data.MoveX:F2}, {data.MoveY:F2}), Jump={data.Jump}, HasInputAuth={Object.HasInputAuthority}");
-                }
-                
-                // Обработка ввода для всех игроков, используя полученные из сети данные
                 _stateMachine.Tick(data);
 
-                // Обработка падения только на сервере
                 if (HasStateAuthority)
                 {
                     _fallDamageService.Tick();
@@ -157,9 +164,6 @@ namespace CodeBase.Gameplay.Player
             }
             else if (Object.HasInputAuthority)
             {
-                // Запасной вариант для локального игрока, если нет сетевого ввода
-                // Это важно на случай проблем с сетевым вводом
-                Debug.LogWarning($"No network input available for player {Object.Id}, using direct input");
                 var localInput = _inputService.GetInput();
                 _stateMachine.Tick(localInput);
             }
@@ -193,6 +197,12 @@ namespace CodeBase.Gameplay.Player
             {
                 _messageService.Unsubscribe<PlayerDiedMessage>(OnPlayerDied);
             }
+        }
+
+        private void OnDisable()
+        {
+            _healthUI?.Clear();
+            _inputService?.Disable();
         }
 
         private void OnDestroy()

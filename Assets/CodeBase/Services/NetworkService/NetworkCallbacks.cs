@@ -1,6 +1,8 @@
+using CodeBase.Infrastructure.StateMachine;
 using CodeBase.Services.GameMode;
 using CodeBase.Services.InputService;
 using CodeBase.Services.Message;
+using CodeBase.Services.PlayerSpawnerService;
 using Fusion;
 using Fusion.Sockets;
 using UnityEngine;
@@ -13,19 +15,26 @@ namespace CodeBase.Services.NetworkService
         private IMessageService _messageService;
         private IGameModeService _modeService;
         private INetworkInputService _inputService;
+        private PlayerSpawner _playerSpawner;
+        private GameStateMachine _gameStateMachine;
 
         [Inject]
-        public void Construct(IMessageService messageService, IGameModeService modeService, INetworkInputService inputService)
+        public void Construct(
+            IMessageService messageService,
+            IGameModeService modeService,
+            INetworkInputService inputService,
+            GameStateMachine gameStateMachine)
         {
             _messageService = messageService;
             _modeService = modeService;
             _inputService = inputService;
+            _gameStateMachine = gameStateMachine;
         }
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
             Debug.Log($"[NetworkCallbacks] OnPlayerJoined: {player.PlayerId}");
-            _messageService.Publish<PlayerConnectedMessage>(
+            _messageService.Publish(
                 new PlayerConnectedMessage { PlayerRef = player, IsHost = _modeService.IsHost }
             );
         }
@@ -34,33 +43,18 @@ namespace CodeBase.Services.NetworkService
         {
             Debug.Log("[NetworkCallbacks] OnSceneLoadDone");
             var sceneName = runner.SceneManager?.MainRunnerScene.name ?? "Unknown";
-            _messageService.Publish<SceneLoadedMessage>(new SceneLoadedMessage(sceneName));
+            _messageService.Publish(new SceneLoadedMessage(sceneName));
         }
 
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
             if (_inputService == null)
             {
-                Debug.LogError("[NetworkCallbacks] InputService is null in OnInput");
                 return;
             }
 
-            try
-            {
-                var data = _inputService.GetInput();
-                
-                // Подробное логирование для входных данных
-                if (data.MoveInput.sqrMagnitude > 0.01f || data.Jump)
-                {
-                    Debug.Log($"[NetworkCallbacks] Sending input: Move=({data.MoveX:F2}, {data.MoveY:F2}), Jump={data.Jump}, Local Player: {runner.LocalPlayer.PlayerId}");
-                }
-                
-                input.Set(data);
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[NetworkCallbacks] Error in OnInput: {ex.Message}\n{ex.StackTrace}");
-            }
+            var data = _inputService.GetInput();
+            input.Set(data);
         }
 
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
@@ -75,9 +69,14 @@ namespace CodeBase.Services.NetworkService
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
             Debug.Log($"[NetworkCallbacks] OnPlayerLeft: {player.PlayerId}");
-            _messageService.Publish<PlayerDisconnectedMessage>(
-                new PlayerDisconnectedMessage { PlayerRef = player }
-            );
+
+            var playerObject = runner.GetPlayerObject(player);
+            if (playerObject != null)
+            {
+                runner.Despawn(playerObject);
+            }
+
+            _messageService.Publish(new PlayerDisconnectedMessage { PlayerRef = player });
         }
 
         public void OnConnectedToServer(NetworkRunner runner)
@@ -95,7 +94,14 @@ namespace CodeBase.Services.NetworkService
         }
 
         public void OnSceneLoadStart(NetworkRunner runner) { }
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+        {
+            if (shutdownReason == ShutdownReason.DisconnectedByPluginLogic)
+            {
+                _messageService.Publish(new HostDisconnectMessage());
+                _gameStateMachine.Enter<GameMenuState>();
+            }
+        }
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }

@@ -1,5 +1,4 @@
 using CodeBase.Services.InputService;
-using UnityEngine;
 
 namespace CodeBase.Gameplay.Player.States
 {

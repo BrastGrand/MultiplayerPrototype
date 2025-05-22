@@ -30,7 +30,7 @@ namespace CodeBase.Infrastructure.Installers
         private void InstantiateGameBootstrapper()
         {
             var bootstrapper = Container.InstantiatePrefab(_gameBootstrapperPrefab).GetComponent<GameBootstrapper>();
-            Container.BindInstance(bootstrapper).AsSingle(); // если нужен доступ к нему через DI
+            Container.BindInstance(bootstrapper).AsSingle();
         }
 
         private void BindServices()

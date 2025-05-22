@@ -18,7 +18,6 @@ namespace CodeBase.Services.InputService
                 Jump = _reader.Jump
             };
             
-            // Устанавливаем через свойство, которое автоматически заполнит MoveX и MoveY
             data.MoveInput = _reader.MoveInput;
             
             return data;
@@ -27,13 +26,11 @@ namespace CodeBase.Services.InputService
         public void Enable()
         {
             _reader.Enable();
-            Debug.Log("[NetworkInputService] Input enabled");
         }
 
         public void Disable()
         {
             _reader.Disable();
-            Debug.Log("[NetworkInputService] Input disabled");
         }
     }
 }

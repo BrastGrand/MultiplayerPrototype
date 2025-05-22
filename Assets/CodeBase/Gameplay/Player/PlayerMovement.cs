@@ -6,14 +6,14 @@ namespace CodeBase.Gameplay.Player
 {
     public class PlayerMovement : NetworkBehaviour
     {
-        [SerializeField] private float _moveSpeed = 5f;
-        [SerializeField] private float _jumpForce = 5f;
         [SerializeField] private CharacterController _characterController;
 
         private const float _GRAVITY = -9.81f;
-        private float _rotationSpeed = 120f;
-        private Vector3 _velocity;
 
+        private readonly float _rotationSpeed = 120f;
+        private readonly float _jumpForce = 5f;
+        private float _moveSpeed = 5f;
+        private Vector3 _velocity;
         private bool _isGrounded;
 
         public void Initialize(float moveSpeed)
@@ -25,19 +25,17 @@ namespace CodeBase.Gameplay.Player
         {
             if (!_characterController) return;
 
-            var direction = new Vector2(input.MoveX, input.MoveY);
+            var direction = new Vector2(input.MoveX, input.MoveY).normalized;
 
-            float forwardInput = direction.y; // W/S
-            float turnInput = direction.x;    // A/D
+            float forwardInput = direction.y;
+            float turnInput = direction.x;
 
-            // Поворот по оси Y
             if (Mathf.Abs(turnInput) > 0.01f)
             {
                 float rotationAmount = turnInput * _rotationSpeed * Runner.DeltaTime;
                 _characterController.transform.Rotate(0f, rotationAmount, 0f);
             }
 
-            // Движение вперёд/назад
             if (Mathf.Abs(forwardInput) > 0.01f)
             {
                 Vector3 moveDirection = _characterController.transform.forward * forwardInput;

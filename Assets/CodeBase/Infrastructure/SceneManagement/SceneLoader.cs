@@ -20,6 +20,7 @@ namespace CodeBase.Infrastructure.SceneManagement
         }
 
 
+        //пока отключил Addressables, потом нужно вернуть
         public async UniTask Load(string nextScene)
         {
             _logService.Log($"Start loading scene: {nextScene}");

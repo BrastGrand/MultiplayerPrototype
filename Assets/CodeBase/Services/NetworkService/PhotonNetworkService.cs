@@ -1,5 +1,6 @@
 using CodeBase.Gameplay;
 using CodeBase.Infrastructure.Notifiers;
+using CodeBase.Infrastructure.StateMachine;
 using CodeBase.Services.GameMode;
 using CodeBase.Services.InputService;
 using CodeBase.Services.Log;
@@ -21,11 +22,9 @@ namespace CodeBase.Services.NetworkService
         private INetworkInputService _inputService;
         private ILogService _log;
         private IGameModeService _modeService;
-        private INetworkObjectSpawner _networkSpawner;
-        private IGameplayReadyNotifier _readyNotifier;
-        private ISpawnPointsProvider _spawnPointsProvider;
         private NetworkCallbacks _callbacks;
         private DiContainer _container;
+        private GameStateMachine _gameStateMachine;
 
         [Inject]
         public void Construct(
@@ -37,23 +36,22 @@ namespace CodeBase.Services.NetworkService
             INetworkObjectSpawner networkSpawner,
             IGameplayReadyNotifier readyNotifier,
             ISpawnPointsProvider spawnPointsProvider,
-            DiContainer container)
+            DiContainer container,
+            GameStateMachine gameStateMachine)
         {
             _runnerProvider = runnerProvider;
             _messageService = messageService;
             _inputService = inputService;
             _log = logService;
             _modeService = modeService;
-            _networkSpawner = networkSpawner;
-            _readyNotifier = readyNotifier;
-            _spawnPointsProvider = spawnPointsProvider;
             _container = container;
+            _gameStateMachine = gameStateMachine;
         }
 
         public async UniTask StartHost()
         {
             _callbacks = _container.InstantiateComponent<NetworkCallbacks>(new GameObject("NetworkCallbacks"));
-            _callbacks.Construct(_messageService, _modeService, _inputService);
+            _callbacks.Construct(_messageService, _modeService, _inputService, _gameStateMachine);
 
             var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
             _runnerProvider.Initialize(runner);
@@ -93,7 +91,7 @@ namespace CodeBase.Services.NetworkService
         public async UniTask StartClient()
         {
             _callbacks = _container.InstantiateComponent<NetworkCallbacks>(new GameObject("NetworkCallbacks"));
-            _callbacks.Construct(_messageService, _modeService, _inputService);
+            _callbacks.Construct(_messageService, _modeService, _inputService, _gameStateMachine);
 
             var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
             _runnerProvider.Initialize(runner);

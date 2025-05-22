@@ -3,6 +3,8 @@ using CodeBase.Gameplay.Player;
 using CodeBase.Infrastructure.AssetManagement;
 using Fusion;
 using UnityEngine;
+using Zenject;
+using Object = UnityEngine.Object;
 
 namespace CodeBase.Services.NetworkService
 {
@@ -10,11 +12,13 @@ namespace CodeBase.Services.NetworkService
     {
         private readonly NetworkRunnerProvider _runnerProvider;
         private readonly IAssetProvider _assetProvider;
+        private readonly DiContainer _container;
 
-        public PhotonNetworkSpawner(NetworkRunnerProvider runnerProvider, IAssetProvider assetProvider)
+        public PhotonNetworkSpawner(NetworkRunnerProvider runnerProvider, IAssetProvider assetProvider, DiContainer container)
         {
             _runnerProvider = runnerProvider;
             _assetProvider = assetProvider;
+            _container = container;
         }
 
         public async void SpawnPlayer(PlayerRef player, Vector3 position, Quaternion rotation, Action<NetworkPlayer> onSpawnedPlayer)
@@ -42,7 +46,6 @@ namespace CodeBase.Services.NetworkService
                         return;
                     }
 
-                    Debug.Log("Player prefab loaded successfully");
                     var networkObject = playerPrefab.GetComponent<NetworkObject>();
                     if (networkObject == null)
                     {
@@ -51,7 +54,6 @@ namespace CodeBase.Services.NetworkService
                         return;
                     }
 
-                    Debug.Log($"Attempting to spawn player at position {position}");
                     var spawnedObject = await _runnerProvider.Runner.SpawnAsync(networkObject, position, rotation, player);
                     if (spawnedObject == null)
                     {
@@ -60,7 +62,6 @@ namespace CodeBase.Services.NetworkService
                         return;
                     }
 
-                    Debug.Log("Player object spawned successfully");
                     var networkPlayer = spawnedObject.GetComponent<NetworkPlayer>();
                     if (networkPlayer == null)
                     {
@@ -69,7 +70,6 @@ namespace CodeBase.Services.NetworkService
                         return;
                     }
 
-                    Debug.Log($"Successfully spawned player for {player}");
                     onSpawnedPlayer?.Invoke(networkPlayer);
                 }
                 catch (Exception e)
@@ -85,10 +85,9 @@ namespace CodeBase.Services.NetworkService
 
                 // Найти любой существующий сетевой объект для отправки RPC
                 // Ищем сетевые объекты на сцене
-                NetworkObject[] networkObjects = GameObject.FindObjectsOfType<NetworkObject>();
-                if (networkObjects != null && networkObjects.Length > 0)
+                NetworkObject[] networkObjects = Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None);
+                if (networkObjects is { Length: > 0 })
                 {
-                    // Берем первый объект с состоянием сервера для отправки RPC
                     foreach (var obj in networkObjects)
                     {
                         if (obj.HasStateAuthority)
@@ -97,8 +96,8 @@ namespace CodeBase.Services.NetworkService
                             if (networkPlayer != null)
                             {
                                 Debug.Log($"Found server object to send RPC: {obj.Id}");
+                                networkPlayer.SetDiContainer(_container);
                                 networkPlayer.RPC_RequestSpawnPlayer(player, position, rotation);
-                                // В этом случае обратный вызов будет вызван позже, когда игрок появится
                                 return;
                             }
                         }

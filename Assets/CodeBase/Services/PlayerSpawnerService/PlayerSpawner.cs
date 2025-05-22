@@ -17,10 +17,8 @@ namespace CodeBase.Services.PlayerSpawnerService
     {
         private readonly INetworkObjectSpawner _networkSpawner;
         private readonly IMessageService _messageService;
-        private readonly IGameModeService _modeService;
         private readonly ILogService _log;
         private readonly DiContainer _container;
-        private readonly IGameplayReadyNotifier _readyNotifier;
         private readonly NetworkRunnerProvider _runnerProvider;
 
         private readonly HashSet<PlayerRef> _pendingPlayers = new();
@@ -42,10 +40,8 @@ namespace CodeBase.Services.PlayerSpawnerService
         {
             _networkSpawner = networkSpawner;
             _messageService = messageService;
-            _modeService = modeService;
             _log = log;
             _container = container;
-            _readyNotifier = readyNotifier;
             _runnerProvider = runnerProvider;
 
             _messageService.Subscribe<PlayerConnectedMessage>(OnPlayerConnected);

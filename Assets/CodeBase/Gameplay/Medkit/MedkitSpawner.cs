@@ -67,6 +67,8 @@ namespace CodeBase.Gameplay.Medkit
                 {
                     Debug.LogError($"Failed to spawn medkit at position {point.position}");
                 }
+
+                result.transform.SetParent(point);
             }
             catch (System.Exception e)
             {

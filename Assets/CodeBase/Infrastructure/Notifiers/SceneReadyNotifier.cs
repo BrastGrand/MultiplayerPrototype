@@ -30,19 +30,12 @@ namespace CodeBase.Gameplay
         private async void Start()
         {
             await _readyNotifier.WaitUntilReady();
-            Debug.Log("[SceneReadyNotifier] ReadyNotifier completed");
-
             await UniTask.WaitUntil(() => _spawnPointsProvider != null && _spawnPointsProvider.SpawnPoints.Count > 0);
-            Debug.Log("[SceneReadyNotifier] Spawn points ready");
 
-            _messageService.Publish<SpawnPointsReadyMessage>(new SpawnPointsReadyMessage(_spawnPointsProvider));
-            Debug.Log("[SceneReadyNotifier] Published SpawnPointsReadyMessage");
-
+            _messageService.Publish(new SpawnPointsReadyMessage(_spawnPointsProvider));
             await _stateMachine.Enter<GameLoopState>();
-            Debug.Log("[SceneReadyNotifier] Entered GameLoopState");
 
-            _messageService.Publish<SceneReadyMessage>(new SceneReadyMessage());
-            Debug.Log("[SceneReadyNotifier] Published SceneReadyMessage");
+            _messageService.Publish(new SceneReadyMessage());
         }
     }
 }
