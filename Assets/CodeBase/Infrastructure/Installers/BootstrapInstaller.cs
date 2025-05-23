@@ -2,10 +2,10 @@ using CodeBase.Gameplay;
 using CodeBase.Infrastructure.AssetManagement;
 using CodeBase.Infrastructure.SceneManagement;
 using CodeBase.Infrastructure.StateMachine;
-using CodeBase.Services.GameMode;
 using CodeBase.Services.InputService;
 using CodeBase.Services.Log;
 using CodeBase.Services.Message;
+using CodeBase.Services.NetworkGameMode;
 using CodeBase.Services.NetworkService;
 using CodeBase.Services.PlayerSpawnerService;
 using CodeBase.Services.UIService;
@@ -42,6 +42,7 @@ namespace CodeBase.Infrastructure.Installers
             Container.Bind<IGameplayReadyNotifier>().To<GameplayReadyNotifier>().AsSingle();
             Container.Bind<INetworkInputService>().To<NetworkInputService>().AsSingle();
             Container.Bind<IAssetProvider>().To<AssetProvider>().AsSingle();
+            Container.Bind<IPlayerSpawner>().To<PlayerSpawner>().AsSingle();
             
             if (_inputReaderPrefab != null)
                 Container.Bind<IInputReader>().FromInstance(_inputReaderPrefab).AsSingle();
@@ -50,7 +51,6 @@ namespace CodeBase.Infrastructure.Installers
                 
             Container.Bind<IUIFactory>().To<UIFactory>().AsSingle();
             Container.Bind<ISceneLoader>().To<SceneLoader>().AsSingle();
-            Container.Bind<IPlayerSpawner>().To<PlayerSpawner>().AsSingle();
         }
 
         private void BindNetwork()

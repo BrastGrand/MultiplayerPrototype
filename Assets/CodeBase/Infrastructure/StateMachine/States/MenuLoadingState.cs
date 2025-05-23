@@ -6,7 +6,7 @@ namespace CodeBase.Infrastructure.StateMachine
 {
     public class MenuLoadingState : LoadingState
     {
-        protected override string TargetScene => "Menu";
+        protected override string TargetScene => "MenuScene";
 
         public MenuLoadingState(
             GameStateMachine stateMachine,

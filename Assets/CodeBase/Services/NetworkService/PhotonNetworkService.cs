@@ -1,16 +1,9 @@
-using CodeBase.Gameplay;
+using System;
 using CodeBase.Infrastructure.Notifiers;
-using CodeBase.Infrastructure.StateMachine;
-using CodeBase.Services.GameMode;
-using CodeBase.Services.InputService;
 using CodeBase.Services.Log;
-using CodeBase.Services.Message;
-using CodeBase.Services.PlayerSpawnerService;
 using Cysharp.Threading.Tasks;
 using Fusion;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Zenject;
 
 namespace CodeBase.Services.NetworkService
@@ -18,118 +11,136 @@ namespace CodeBase.Services.NetworkService
     public class PhotonNetworkService : INetworkService
     {
         private NetworkRunnerProvider _runnerProvider;
-        private IMessageService _messageService;
-        private INetworkInputService _inputService;
         private ILogService _log;
-        private IGameModeService _modeService;
         private NetworkCallbacks _callbacks;
-        private DiContainer _container;
-        private GameStateMachine _gameStateMachine;
+        private NetworkSceneLoadNotifier _sceneLoadNotifier;
 
         [Inject]
         public void Construct(
             NetworkRunnerProvider runnerProvider,
-            IMessageService messageService,
-            INetworkInputService inputService,
             ILogService logService,
-            IGameModeService modeService,
-            INetworkObjectSpawner networkSpawner,
-            IGameplayReadyNotifier readyNotifier,
-            ISpawnPointsProvider spawnPointsProvider,
-            DiContainer container,
-            GameStateMachine gameStateMachine)
+            NetworkCallbacks callbacks)
         {
             _runnerProvider = runnerProvider;
-            _messageService = messageService;
-            _inputService = inputService;
             _log = logService;
-            _modeService = modeService;
-            _container = container;
-            _gameStateMachine = gameStateMachine;
+            _callbacks = callbacks;
+
+            _sceneLoadNotifier = new NetworkSceneLoadNotifier(_callbacks, _runnerProvider);
+        }
+
+        private async UniTask<NetworkRunner> CreateRunner()
+        {
+            try
+            {
+                _log.Log("[PhotonNetworkService] Creating NetworkRunner...");
+                var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
+
+                UnityEngine.Object.DontDestroyOnLoad(runner.gameObject);
+
+                runner.AddCallbacks(_callbacks);
+                runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
+
+                _runnerProvider.Initialize(runner);
+                return runner;
+            }
+            catch (System.Exception e)
+            {
+                _log.LogError($"[PhotonNetworkService] Failed to create NetworkRunner: {e.Message}");
+                return null;
+            }
+        }
+
+        public async UniTask<StartGameResult> StartGame(GameMode mode)
+        {
+            _log.Log($"[PhotonNetworkService] Starting game in {mode} mode...");
+            _log.Log($"[PhotonNetworkService] Current runner state - IsServer: {_runnerProvider.Runner.IsServer}," +
+                     $" IsClient: {_runnerProvider.Runner.IsClient}, IsRunning: {_runnerProvider.Runner.IsRunning}," +
+                     $" Scene: {_runnerProvider.Runner.SceneManager?.MainRunnerScene.name ?? "None"}");
+
+            var startGameArgs = new StartGameArgs()
+            {
+                GameMode = mode,
+                SessionName = "TestRoom",
+                PlayerCount = 4
+            };
+
+            var result = await _runnerProvider.Runner.StartGame(startGameArgs);
+
+            _log.Log($"[PhotonNetworkService] Game started with result: {result.Ok}," +
+                     $" IsServer: {_runnerProvider.Runner.IsServer}, " +
+                     $"IsClient: {_runnerProvider.Runner.IsClient}, " +
+                     $"IsRunning: {_runnerProvider.Runner.IsRunning}, " +
+                     $"Scene: {_runnerProvider.Runner.SceneManager?.MainRunnerScene.name ?? "None"}");
+
+            if (result.Ok)
+            {
+                _log.Log($"[PhotonNetworkService] Game started successfully in {mode} mode");
+            }
+            else
+            {
+                _log.LogError($"[PhotonNetworkService] Failed to start game in {mode} mode: {result.ShutdownReason}");
+            }
+
+            return result;
         }
 
         public async UniTask StartHost()
         {
-            _callbacks = _container.InstantiateComponent<NetworkCallbacks>(new GameObject("NetworkCallbacks"));
-            _callbacks.Construct(_messageService, _modeService, _inputService, _gameStateMachine);
+            try
+            {
+                _log.Log("[PhotonNetworkService] Starting host...");
+                var runner = await CreateRunner();
+                if (runner == null)
+                {
+                    _log.LogError("[PhotonNetworkService] Failed to create runner");
+                    return;
+                }
 
-            var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
-            _runnerProvider.Initialize(runner);
+                var result = await StartGame(GameMode.Host);
+                if (!result.Ok)
+                {
+                    _log.LogError($"[PhotonNetworkService] Failed to start host: {result.ShutdownReason}");
+                    return;
+                }
 
-            var sceneManager = runner.AddComponent<NetworkSceneManagerDefault>();
-            var sceneLoadNotifier = _container.Instantiate<NetworkSceneLoadNotifier>();
-
-            // Create the NetworkSceneInfo from the current scene
-            var scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex);
-            var sceneInfo = new NetworkSceneInfo();
-            if (scene.IsValid) {
-                sceneInfo.AddSceneRef(scene, LoadSceneMode.Additive);
+                _log.Log("[PhotonNetworkService] Host started successfully");
             }
-
-            var result = await runner.StartGame(new StartGameArgs
+            catch (System.Exception e)
             {
-                GameMode = Fusion.GameMode.Host,
-                SessionName = "TestRoom",
-                Scene = scene,
-                SceneManager = sceneManager,
-                PlayerCount = 4
-            });
-
-            if (result.Ok)
-            {
-                _log.Log("Host started successfully");
-                // Ждем, пока runner действительно станет сервером
-                await UniTask.WaitUntil(() => runner.IsServer);
-                _log.Log($"Runner is now server: {runner.IsServer}");
-            }
-            else
-            {
-                _log.Log($"Failed to start host: {result.ShutdownReason}");
+                _log.LogError($"[PhotonNetworkService] Error starting host: {e.Message}");
             }
         }
 
         public async UniTask StartClient()
         {
-            _callbacks = _container.InstantiateComponent<NetworkCallbacks>(new GameObject("NetworkCallbacks"));
-            _callbacks.Construct(_messageService, _modeService, _inputService, _gameStateMachine);
+            try
+            {
+                _log.Log("Starting client...");
+                var runner = await CreateRunner();
+                var result = await StartGame(GameMode.Client);
 
-            var runner = new GameObject("NetworkRunner").AddComponent<NetworkRunner>();
-            _runnerProvider.Initialize(runner);
-
-            var sceneManager = runner.AddComponent<NetworkSceneManagerDefault>();
-            var sceneLoadNotifier = _container.Instantiate<NetworkSceneLoadNotifier>();
-
-            // Create the NetworkSceneInfo from the current scene
-            var scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex);
-            var sceneInfo = new NetworkSceneInfo();
-            if (scene.IsValid) {
-                sceneInfo.AddSceneRef(scene, LoadSceneMode.Additive);
+                if (!result.Ok)
+                {
+                    _log.LogError($"Failed to start client: {result.ShutdownReason}");
+                }
             }
-
-            var result = await runner.StartGame(new StartGameArgs
+            catch (Exception e)
             {
-                GameMode = Fusion.GameMode.Client,
-                SessionName = "TestRoom",
-                Scene = scene,
-                SceneManager = sceneManager
-            });
-
-            if (result.Ok)
-            {
-                _log.Log("Client started successfully");
-            }
-            else
-            {
-                _log.Log($"Failed to start client: {result.ShutdownReason}");
+                _log.LogError($"Error starting client: {e.Message}");
             }
         }
 
         public void Disconnect()
         {
-            _runnerProvider
-                .Runner
-                .Shutdown()
-                .Dispose();
+            if (_runnerProvider.Runner != null)
+            {
+                _runnerProvider.Runner.Shutdown();
+            }
+        }
+
+        public void Dispose()
+        {
+            _sceneLoadNotifier?.Dispose();
         }
     }
 }

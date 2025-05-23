@@ -1,8 +1,8 @@
 using CodeBase.Gameplay;
-using CodeBase.Services.GameMode;
 using CodeBase.Services.InputService;
 using CodeBase.Services.Log;
 using CodeBase.Services.Message;
+using CodeBase.Services.NetworkGameMode;
 using UnityEngine;
 using Zenject;
 

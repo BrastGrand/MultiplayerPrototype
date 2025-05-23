@@ -1,5 +1,5 @@
-using CodeBase.Services.GameMode;
 using CodeBase.Services.Log;
+using CodeBase.Services.NetworkGameMode;
 using CodeBase.Services.PlayerSpawnerService;
 using Cysharp.Threading.Tasks;
 using Fusion;
@@ -11,6 +11,8 @@ namespace CodeBase.Infrastructure.StateMachine
         private readonly IPlayerSpawner _playerSpawner;
         private readonly ILogService _log;
         private readonly IGameModeService _modeService;
+        private bool _isInitialized;
+        private bool _isExiting;
 
         public GameLoopState(
             IPlayerSpawner playerSpawner, 
@@ -28,17 +30,37 @@ namespace CodeBase.Infrastructure.StateMachine
             _log.Log($"Player {player.PlayerId} spawned");
         }
 
-        public UniTask Enter()
+        public async UniTask Enter()
         {
+            if (_isInitialized)
+            {
+                _log.Log("GameLoopState already initialized, skipping");
+                return;
+            }
+
+            if (_isExiting)
+            {
+                _log.Log("GameLoopState is exiting, skipping initialization");
+                return;
+            }
+
+            _isInitialized = true;
             _log.Log($"Game started as {(_modeService.IsHost ? "Host" : "Client")}");
-            return UniTask.CompletedTask;
         }
 
-        public UniTask Exit()
+        public async UniTask Exit()
         {
+            if (!_isInitialized)
+            {
+                _log.Log("GameLoopState not initialized, skipping exit");
+                return;
+            }
+
+            _isExiting = true;
             _log.Log("Game exit");
             _playerSpawner.OnPlayerSpawned -= OnPlayerSpawned;
-            return UniTask.CompletedTask;
+            _isInitialized = false;
+            _isExiting = false;
         }
     }
 }

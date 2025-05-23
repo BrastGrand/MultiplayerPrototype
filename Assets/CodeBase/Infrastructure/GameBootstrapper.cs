@@ -28,9 +28,5 @@ namespace CodeBase.Infrastructure
             _gameStateMachine.Enter<GameBootstrapState>().Forget();
             DontDestroyOnLoad(this);
         }
-
-        public class Factory : PlaceholderFactory<GameBootstrapper>
-        {
-        }
     }
 }

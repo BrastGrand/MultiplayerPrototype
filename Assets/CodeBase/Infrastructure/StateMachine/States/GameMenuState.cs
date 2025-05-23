@@ -41,14 +41,14 @@ namespace CodeBase.Infrastructure.StateMachine
             }
         }
 
-        private async void OnHostClicked()
+        private void OnHostClicked()
         {
             _menuScreen.SetStatus("Creating game...");
             _menuScreen.SetButtonsInteractable(false);
 
             try
             {
-                await StartHost();
+                StartHost();
             }
             catch (Exception e)
             {
@@ -78,20 +78,50 @@ namespace CodeBase.Infrastructure.StateMachine
             Application.Quit();
         }
 
-        private async UniTask StartHost()
+        private async void StartHost()
         {
-            await _networkService.StartHost();
-            await _stateMachine.Enter<GameLoadingState>();
             if (_menuScreen != null)
-                await _menuScreen.Hide(0);
+            {
+                _menuScreen.SetStatus("Creating game...");
+                _menuScreen.SetButtonsInteractable(false);
+            }
+
+            await _networkService.StartHost();
+            
+            // Сохраняем ссылку на экран перед уничтожением
+            var screen = _menuScreen;
+            _menuScreen = null;
+            
+            if (screen != null)
+            {
+                await screen.Hide();
+                _uiFactory.CloseScreen<MenuScreen>();
+            }
+            
+            await _stateMachine.Enter<GameLoadingState>();
         }
 
         private async UniTask StartClient()
         {
-            await _networkService.StartClient();
-            await _stateMachine.Enter<GameLoadingState>();
             if (_menuScreen != null)
-                await _menuScreen.Hide(0);
+            {
+                _menuScreen.SetStatus("Joining game...");
+                _menuScreen.SetButtonsInteractable(false);
+            }
+
+            await _networkService.StartClient();
+            
+            // Сохраняем ссылку на экран перед уничтожением
+            var screen = _menuScreen;
+            _menuScreen = null;
+            
+            if (screen != null)
+            {
+                await screen.Hide();
+                _uiFactory.CloseScreen<MenuScreen>();
+            }
+            
+            await _stateMachine.Enter<GameLoadingState>();
         }
 
         public void Dispose() => Exit().Forget();

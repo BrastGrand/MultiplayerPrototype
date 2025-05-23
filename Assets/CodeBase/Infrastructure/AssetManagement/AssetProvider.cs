@@ -5,17 +5,22 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace CodeBase.Infrastructure.AssetManagement
 {
     public class AssetProvider : IAssetProvider
     {
-        private readonly Dictionary<string, AsyncOperationHandle> _assetRequests = new Dictionary<string, AsyncOperationHandle>();
+        private readonly Dictionary<string, AsyncOperationHandle> _completedCache = new();
+        private readonly Dictionary<string, List<AsyncOperationHandle>> _handles = new();
 
         public async UniTask InitializeAsync() => await Addressables.InitializeAsync().ToUniTask();
 
         public async Task<TAsset> Load<TAsset>(string key) where TAsset : class
         {
+            if (_completedCache.TryGetValue(key, out AsyncOperationHandle completedHandle))
+                return completedHandle.Result as TAsset;
+
             var validateAddress = Addressables.LoadResourceLocationsAsync(key);
             await validateAddress.Task;
 
@@ -30,6 +35,8 @@ namespace CodeBase.Infrastructure.AssetManagement
             try
             {
                 await handle.Task;
+                AddHandle(key, handle);
+                return handle.Result as TAsset;
             }
             catch (Exception e)
             {
@@ -37,29 +44,17 @@ namespace CodeBase.Infrastructure.AssetManagement
                 Addressables.Release(handle);
                 return null;
             }
-
-            if (handle.Status == AsyncOperationStatus.Succeeded)
-            {
-                return handle.Result as TAsset;
-            }
-            else
-            {
-                Debug.LogError($"Загрузка ассета {key} завершилась с ошибкой. Статус: {handle.Status}");
-                Addressables.Release(handle);
-                return null;
-            }
         }
 
-        public async UniTask<TAsset> Load<TAsset>(AssetReference assetReference) where TAsset : class => await Load<TAsset>(assetReference.AssetGUID);
-
-        public async UniTask<List<string>> GetAssetsListByLabel<TAsset>(string label) => await GetAssetsListByLabel(label, typeof(TAsset));
+        public async Task<TAsset> Load<TAsset>(AssetReference assetReference) where TAsset : class
+        {
+            return await Load<TAsset>(assetReference.AssetGUID);
+        }
 
         public async UniTask<List<string>> GetAssetsListByLabel(string label, Type type = null)
         {
             var operationHandle = Addressables.LoadResourceLocationsAsync(label, type);
-
             var locations = await operationHandle.ToUniTask();
-
             List<string> assetKeys = new List<string>(locations.Count);
 
             foreach (var location in locations)
@@ -90,19 +85,92 @@ namespace CodeBase.Infrastructure.AssetManagement
             var assetsList = await GetAssetsListByLabel(label);
 
             foreach (var assetKey in assetsList)
-                if (_assetRequests.TryGetValue(assetKey, out var handler))
+                if (_handles.TryGetValue(assetKey, out var handles))
                 {
-                    Addressables.Release(handler);
-                    _assetRequests.Remove(assetKey);
+                    foreach (var handle in handles)
+                    {
+                        if (handle.IsValid())
+                            Addressables.Release(handle);
+                    }
+                    _handles.Remove(assetKey);
                 }
         }
 
         public void Cleanup()
         {
-            foreach (var assetRequest in _assetRequests)
-                Addressables.Release(assetRequest.Value);
+            foreach (var resourceHandles in _handles.Values)
+            {
+                foreach (var handle in resourceHandles)
+                {
+                    if (handle.IsValid())
+                        Addressables.Release(handle);
+                }
+            }
+            
+            _completedCache.Clear();
+            _handles.Clear();
+        }
 
-            _assetRequests.Clear();
+        public async Task<GameObject> Instantiate(string address)
+        {
+            var handle = Addressables.InstantiateAsync(address);
+            AddHandle(address, handle);
+            return await handle.Task;
+        }
+
+        public async Task<GameObject> Instantiate(string address, Vector3 at)
+        {
+            var handle = Addressables.InstantiateAsync(address, at, Quaternion.identity);
+            AddHandle(address, handle);
+            return await handle.Task;
+        }
+
+        public async Task<GameObject> Instantiate(string address, Transform under)
+        {
+            var handle = Addressables.InstantiateAsync(address, under);
+            AddHandle(address, handle);
+            return await handle.Task;
+        }
+
+        public async Task<GameObject> Instantiate(string address, Vector3 at, Transform under)
+        {
+            var handle = Addressables.InstantiateAsync(address, at, Quaternion.identity, under);
+            AddHandle(address, handle);
+            return await handle.Task;
+        }
+
+        public async Task<SceneInstance> LoadScene(string sceneName)
+        {
+            var handle = Addressables.LoadSceneAsync(sceneName);
+            AddHandle(sceneName, handle);
+            return await handle.Task;
+        }
+
+        public Task UnloadScene(string sceneName)
+        {
+            if (_handles.TryGetValue(sceneName, out var handles))
+            {
+                foreach (var handle in handles)
+                {
+                    if (handle.IsValid())
+                    {
+                        Addressables.Release(handle);
+                    }
+                }
+                _handles.Remove(sceneName);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private void AddHandle<T>(string key, AsyncOperationHandle<T> handle) where T : class
+        {
+            if (!_handles.TryGetValue(key, out var handles))
+            {
+                handles = new List<AsyncOperationHandle>();
+                _handles[key] = handles;
+            }
+            handles.Add(handle);
         }
     }
 }

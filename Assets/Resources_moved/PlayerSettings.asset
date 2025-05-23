@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _maxHp: 100
   _moveSpeed: 5
-  _fallDamageThreshold: 2
+  _fallDamageThreshold: 0.5
   _fallDamage: 20

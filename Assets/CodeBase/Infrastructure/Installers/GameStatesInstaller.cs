@@ -14,7 +14,6 @@ namespace CodeBase.Infrastructure.Installers
             Container.Bind<GameLoadingState>().AsSingle();
             Container.Bind<MenuLoadingState>().AsSingle();
             Container.Bind<GameLoopState>().AsSingle();
-            Container.Bind<GameLoopStateFactory>().AsSingle();
         }
     }
 } 

@@ -1,4 +1,4 @@
-namespace CodeBase.Services.GameMode
+namespace CodeBase.Services.NetworkGameMode
 {
     public interface IGameModeService
     {

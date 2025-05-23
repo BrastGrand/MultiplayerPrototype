@@ -27,6 +27,9 @@ namespace CodeBase.Gameplay.Player.States
                 return PlayerStateType.Move;
             }
 
+            // Даже в состоянии покоя вызываем Move для поддержания физики (гравитация, падение)
+            _movement.Move(input);
+
             return PlayerStateType.Idle;
         }
     }

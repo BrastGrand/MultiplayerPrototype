@@ -1,6 +1,6 @@
 using CodeBase.Services.NetworkService;
 
-namespace CodeBase.Services.GameMode
+namespace CodeBase.Services.NetworkGameMode
 {
     public class GameModeService : IGameModeService
     {

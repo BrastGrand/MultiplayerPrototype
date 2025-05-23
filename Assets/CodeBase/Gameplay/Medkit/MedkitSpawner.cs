@@ -1,79 +1,138 @@
 using CodeBase.Services.NetworkService;
 using Fusion;
+using Fusion.Sockets;
 using UnityEngine;
 using Zenject;
+using System.Collections.Generic;
 
 namespace CodeBase.Gameplay.Medkit
 {
-    public class MedkitSpawner : MonoBehaviour
+    public class MedkitSpawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         [SerializeField] private NetworkPrefabRef _medkitPrefab;
         [SerializeField] private Transform[] _spawnPoints;
 
         private NetworkRunnerProvider _runnerProvider;
         private NetworkRunner _runner;
+        private bool _medkitsSpawned = false;
 
         [Inject]
         public void Construct(NetworkRunnerProvider runnerProvider)
         {
             _runnerProvider = runnerProvider;
 
+            Debug.Log($"[MedkitSpawner] Construct called. Runner ready: {runnerProvider.Runner != null}");
+
             if (runnerProvider.Runner != null)
             {
                 _runner = runnerProvider.Runner;
-                SpawnMedkits();
+                
+                if (_runner.IsServer)
+                {
+                    // Подписываемся на события подключения игроков
+                    _runner.AddCallbacks(this);
+                    Debug.Log("[MedkitSpawner] Server ready, subscribed to player join events");
+                }
+                else
+                {
+                    Debug.Log("[MedkitSpawner] Client - waiting for medkits from server");
+                }
             }
             else
             {
-                runnerProvider.OnRunnerInitialized += OnRunnerInitialized;
+                Debug.Log("[MedkitSpawner] Runner not ready yet");
             }
         }
 
-        private void OnRunnerInitialized(NetworkRunner runner)
+        // Вызывается когда игрок подключается
+        public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            _runner = runner;
-            SpawnMedkits();
+            // Если это сервер и медкиты ещё не заспавнены
+            if ((runner.IsServer) && !_medkitsSpawned)
+            {
+                Debug.Log($"[MedkitSpawner] Player {player} joined, spawning medkits now");
+                Invoke(nameof(DelayedSpawnMedkits), 2f); // 2 секунды задержки для стабильности
+            }
+        }
 
-            _runnerProvider.OnRunnerInitialized -= OnRunnerInitialized;
+        private void DelayedSpawnMedkits()
+        {
+            if (_medkitsSpawned) return; // Проверяем что не заспавнили уже
+            
+            SpawnMedkits();
         }
 
         private void SpawnMedkits()
         {
-            if (_medkitPrefab == null)
+            if (_runner == null || !(_runner.IsServer))
             {
-                Debug.LogError("Medkit prefab is not assigned!");
                 return;
             }
 
-            foreach (var point in _spawnPoints)
+            if (_medkitsSpawned)
             {
-                if (point == null) continue;
-                SpawnMedkit(point);
+                return;
+            }
+
+            _medkitsSpawned = true;
+
+            foreach (var spawnPoint in _spawnPoints)
+            {
+                SpawnMedkit(spawnPoint);
             }
         }
 
-        private async void SpawnMedkit(Transform point)
+        private async void SpawnMedkit(Transform spawnPoint)
         {
-            if (_runner == null || !_runner.IsServer)
+            if (_runner == null) return;
+
+            if (!(_runner.IsServer))
             {
-                Debug.LogWarning("SpawnMedkit: Runner not ready or not server");
+                return;
+            }
+
+            if (!_medkitPrefab.IsValid)
+            {
                 return;
             }
 
             try
             {
-                var result = await _runner.SpawnAsync(_medkitPrefab, point.position, Quaternion.identity);
-                if (result == null)
-                {
-                    Debug.LogError($"Failed to spawn medkit at position {point.position}");
-                }
-
-                result.transform.SetParent(point);
+                _runner.Spawn(_medkitPrefab, spawnPoint.position, spawnPoint.rotation);
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Error spawning medkit: {e.Message}");
+                Debug.LogError($"[MedkitSpawner] Exception while spawning medkit: {e.Message}");
             }
         }
+
+        private void OnDestroy()
+        {
+            if (_runner != null)
+            {
+                _runner.RemoveCallbacks(this);
+            }
+            CancelInvoke();
+        }
+
+        // Остальные методы INetworkRunnerCallbacks (пустые, нам нужен только OnPlayerJoined)
+        public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
+        public void OnInput(NetworkRunner runner, NetworkInput input) { }
+        public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+        public void OnConnectedToServer(NetworkRunner runner) { }
+        public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+        public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+        public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
+        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+        public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+        public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+        public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, System.ArraySegment<byte> data) { }
+        public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+        public void OnSceneLoadDone(NetworkRunner runner) { }
+        public void OnSceneLoadStart(NetworkRunner runner) { }
+        public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+        public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     }
 }

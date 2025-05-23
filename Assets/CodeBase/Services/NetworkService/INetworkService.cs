@@ -1,8 +1,9 @@
 using Cysharp.Threading.Tasks;
+using System;
 
 namespace CodeBase.Services.NetworkService
 {
-    public interface INetworkService
+    public interface INetworkService : IDisposable
     {
         UniTask StartHost();
         UniTask StartClient();

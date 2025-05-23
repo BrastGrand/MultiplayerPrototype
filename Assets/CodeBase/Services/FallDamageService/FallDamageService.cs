@@ -12,6 +12,7 @@ namespace CodeBase.Services.FallDamageService
         {
             public float FallStartY;
             public bool IsFalling;
+            public NetworkCharacterController NetworkController;
             public CharacterController Controller;
         }
 
@@ -30,11 +31,15 @@ namespace CodeBase.Services.FallDamageService
         {
             _fallDamage = fallDamage;
 
+            var networkController = player.GetComponent<NetworkCharacterController>();
+            var characterController = player.GetComponent<CharacterController>();
+
             _entries[player] = new FallEntry
             {
                 FallStartY = player.transform.position.y,
                 IsFalling = false,
-                Controller = player.GetComponent<CharacterController>()
+                NetworkController = networkController,
+                Controller = characterController
             };
         }
 
@@ -46,36 +51,50 @@ namespace CodeBase.Services.FallDamageService
                 var data = entry.Value;
                 var positionY = player.transform.position.y;
 
-                var controller = entry.Value.Controller;
-                if (controller == null) continue;
-
-                if (!controller.isGrounded)
+                bool isGrounded = false;
+                if (data.NetworkController != null)
                 {
-                    // Начало падения
+                    isGrounded = data.NetworkController.Grounded;
+                }
+                else if (data.Controller != null)
+                {
+                    isGrounded = data.Controller.isGrounded;
+                }
+                else
+                {
+                    continue;
+                }
+
+                if (!isGrounded)
+                {
                     if (!data.IsFalling)
                     {
                         data.FallStartY = positionY;
                         data.IsFalling = true;
+                        Debug.Log($"[FallDamageService] Player {player.Id} started falling from Y={data.FallStartY}");
                     }
                 }
                 else
                 {
-                    // Приземление
-                    if (data.IsFalling)
-                    {
-                        float delta = data.FallStartY - positionY;
+                    if (!data.IsFalling) continue;
+                    float delta = data.FallStartY - positionY;
 
-                        if (delta >= _fallThreshold)
+                    if (delta >= _fallThreshold)
+                    {
+                        if (player.HasStateAuthority)
                         {
                             _messageService.Publish(new PlayerTakeDamageMessage
                             {
                                 Damage = _fallDamage,
                                 PlayerObject = player
                             });
-                        }
 
-                        data.IsFalling = false;
+                            Debug.Log($"[FallDamageService] Fall damage sent for player {player.Id}. " +
+                                      $"Damage: {_fallDamage}");
+                        }
                     }
+
+                    data.IsFalling = false;
                 }
             }
         }

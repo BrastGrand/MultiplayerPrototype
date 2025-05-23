@@ -26,7 +26,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 201047036896572048}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.35}
   m_LocalScale: {x: 0.1, y: 0.10000002, z: 0.10000002}
   m_ConstrainProportionsScale: 0
@@ -955,7 +955,7 @@ GameObject:
   - component: {fileID: 7715058546445658457}
   - component: {fileID: 6464737588845400665}
   - component: {fileID: 7340124120559495363}
-  - component: {fileID: 2003104609578837154}
+  - component: {fileID: 742289923992021243}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1001,7 +1001,8 @@ MonoBehaviour:
   - {fileID: 7900872044173342064}
   - {fileID: 1330165144672711888}
   - {fileID: 1007913067835164898}
-  - {fileID: 2003104609578837154}
+  - {fileID: 7715058546445658457}
+  - {fileID: 742289923992021243}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7900872044173342064
 MonoBehaviour:
@@ -1018,6 +1019,7 @@ MonoBehaviour:
   _healthUI: {fileID: 4076235510996535763}
   _playerAnimator: {fileID: 7715058546445658457}
   _cameraTargetBinder: {fileID: 7340124120559495363}
+  _CurrentPlayerState: 0
 --- !u!114 &1330165144672711888
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1030,9 +1032,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 426011ed382b416fb1c17eda5730ba41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _moveSpeed: 2.23
-  _jumpForce: 5
-  _characterController: {fileID: 6464737588845400665}
+  _networkController: {fileID: 742289923992021243}
+  _NetworkRotation: 0
 --- !u!114 &1007913067835164898
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1097,7 +1098,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _targetToFollow: {fileID: 3533989665011856322}
---- !u!114 &2003104609578837154
+--- !u!114 &742289923992021243
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1106,14 +1107,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 4239368359864426399}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Script: {fileID: 11500000, guid: 378411a89480da345945c2f888327a2d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  SyncScale: 0
-  SyncParent: 0
-  _autoAOIOverride: 1
-  DisableSharedModeInterpolation: 0
+  _stateAuthorityChangeErrorCorrectionDelta: 0.1
+  gravity: -9.81
+  jumpImpulse: 8
+  acceleration: 25
+  braking: 25
+  maxSpeed: 5
+  rotationSpeed: 0
 --- !u!1 &4293247119850963313
 GameObject:
   m_ObjectHideFlags: 0

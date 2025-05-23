@@ -21,124 +21,170 @@ namespace CodeBase.Gameplay.Player
         [SerializeField] private PlayerAnimator _playerAnimator;
         [SerializeField] private CameraTargetBinder _cameraTargetBinder;
 
-        [Inject] private INetworkInputService _inputService;
-        [Inject] private IMessageService _messageService;
-        [Inject] private IAssetProvider _assetProvider;
+        // Синхронизируем состояние игрока по сети
+        [Networked] 
+        public PlayerStateType CurrentPlayerState { get; private set; } = PlayerStateType.Idle;
+        
+        // Локальная переменная для отслеживания изменений
+        private PlayerStateType _previousPlayerState = PlayerStateType.Idle;
+
+        private INetworkInputService _inputService;
+        private IMessageService _messageService;
+        private IAssetProvider _assetProvider;
         private FallDamageService _fallDamageService;
         private PlayerStateMachine _stateMachine;
         private PlayerHealth _health;
         private PlayerSettings _playerSettings;
 
+        // Статические ссылки для автоинициализации на клиентах
+        private static INetworkInputService _staticInputService;
+        private static IMessageService _staticMessageService;
+        private static IAssetProvider _staticAssetProvider;
+        private static bool _staticServicesInitialized = false;
+
         public bool IsInitialized { get; private set; }
 
-        public async Task Initialize()
+        // Статический метод для инициализации сервисов
+        public static void InitializeStaticServices(
+            INetworkInputService inputService,
+            IMessageService messageService,
+            IAssetProvider assetProvider)
         {
-            Debug.Log($"NetworkPlayer Initialize. HasStateAuthority: {HasStateAuthority}, HasInputAuthority: {Object.HasInputAuthority}, Object: {Object.Id}");
+            _staticInputService = inputService;
+            _staticMessageService = messageService;
+            _staticAssetProvider = assetProvider;
+            _staticServicesInitialized = true;
+            Debug.Log("[NetworkPlayer] Static services initialized");
+        }
 
-            _playerSettings = await _assetProvider.Load<PlayerSettings>("PlayerSettings");
-            Debug.Log("PlayerSettings loaded");
-
-            var movement = GetComponent<PlayerMovement>();
-            _health = GetComponent<PlayerHealth>();
-
-            movement.Initialize(_playerSettings.MoveSpeed);
-            _health.Initialize(_messageService, _playerSettings);
-            Debug.Log("Movement and health initialized");
-
-            _fallDamageService = new FallDamageService(_playerSettings.FallDamageThreshold, _messageService);
-
-            var states = new Dictionary<PlayerStateType, States.IPlayerState>
+        public void Initialize(
+            INetworkInputService inputService,
+            IMessageService messageService,
+            IAssetProvider assetProvider)
+        {
+            if (IsInitialized)
             {
-                { PlayerStateType.Idle, new IdleState(movement) },
-                { PlayerStateType.Move, new MoveState(movement) },
-                { PlayerStateType.Dead, new DeathState() }
-            };
+                Debug.Log($"[NetworkPlayer] Already initialized, skipping manual initialization. Object: {Object.Id}");
+                return;
+            }
 
-            _stateMachine = new PlayerStateMachine(states);
-            _stateMachine.Enter(PlayerStateType.Idle);
-            Debug.Log("State machine initialized");
+            Debug.Log($"[NetworkPlayer] Manual Initialize called. HasStateAuthority: {HasStateAuthority}, HasInputAuthority: {Object.HasInputAuthority}, Object: {Object.Id}");
 
-            _stateMachine.OnStateChanged += _playerAnimator.Play;
-            _messageService.Subscribe<PlayerDiedMessage>(OnPlayerDied);
-            _fallDamageService.Track(Object, _playerSettings.FallDamage);
+            _inputService = inputService;
+            _messageService = messageService;
+            _assetProvider = assetProvider;
 
-            if (Object.HasInputAuthority)
+            InitializeAsync();
+        }
+
+        private async void AutoInitialize()
+        {
+            Debug.Log($"[NetworkPlayer] AutoInitialize called. Static services ready: {_staticServicesInitialized}");
+
+            if (!_staticServicesInitialized)
             {
-                Debug.Log("Input enabled for local player");
+                Debug.LogError("[NetworkPlayer] Static services not initialized! Cannot auto-initialize player.");
+                return;
+            }
 
-                _inputService.Enable();
+            if (IsInitialized)
+            {
+                Debug.Log($"[NetworkPlayer] Already initialized, skipping auto-initialization. Object: {Object.Id}");
+                return;
+            }
 
-                if (_healthUI != null)
+            Debug.Log($"[NetworkPlayer] Auto-initializing player. HasStateAuthority: {HasStateAuthority}, HasInputAuthority: {Object.HasInputAuthority}, Object: {Object.Id}");
+
+            _inputService = _staticInputService;
+            _messageService = _staticMessageService;
+            _assetProvider = _staticAssetProvider;
+
+            await InitializeAsync();
+        }
+
+        private async Task InitializeAsync()
+        {
+            try
+            {
+                Debug.Log($"[NetworkPlayer] Starting async initialization. Object: {Object.Id}");
+
+                _playerSettings = await _assetProvider.Load<PlayerSettings>("PlayerSettings");
+                Debug.Log($"[NetworkPlayer] PlayerSettings loaded. Object: {Object.Id}");
+
+                var movement = GetComponent<PlayerMovement>();
+                _health = GetComponent<PlayerHealth>();
+
+                movement.Initialize(_playerSettings.MoveSpeed);
+                _health.Initialize(_messageService, _playerSettings);
+
+                _fallDamageService = new FallDamageService(_playerSettings.FallDamageThreshold, _messageService);
+
+                var states = new Dictionary<PlayerStateType, States.IPlayerState>
                 {
-                    _healthUI.Initialize(_playerSettings.MaxHp, _messageService);
-                    _healthUI.gameObject.SetActive(true);
-                }
-            }
-            else
-            {
-                _healthUI?.gameObject.SetActive(false);
-            }
+                    { PlayerStateType.Idle, new IdleState(movement) },
+                    { PlayerStateType.Move, new MoveState(movement) },
+                    { PlayerStateType.Dead, new DeathState() }
+                };
 
-            IsInitialized = true;
-            Debug.Log("Player fully initialized");
+                _stateMachine = new PlayerStateMachine(states);
+                _stateMachine.Enter(PlayerStateType.Idle);
+
+                // Подписываемся на изменения локального состояния для обновления сетевого состояния
+                _stateMachine.OnStateChanged += OnLocalStateChanged;
+                _messageService.Subscribe<PlayerDiedMessage>(OnPlayerDied);
+                _fallDamageService.Track(Object, _playerSettings.FallDamage);
+
+                if (Object.HasInputAuthority)
+                {
+                    Debug.Log($"[NetworkPlayer] Input enabled for local player. Object: {Object.Id}");
+                    _inputService.Enable();
+
+                    if (_healthUI != null)
+                    {
+                        _healthUI.Initialize(_playerSettings.MaxHp, _messageService);
+                        _healthUI.gameObject.SetActive(true);
+                    }
+                }
+                else
+                {
+                    _healthUI?.gameObject.SetActive(false);
+                }
+
+                IsInitialized = true;
+                Debug.Log($"[NetworkPlayer] Player fully initialized. Object: {Object.Id}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[NetworkPlayer] Error initializing NetworkPlayer {Object.Id}: {e.Message}");
+                throw;
+            }
         }
 
         public override void Spawned()
         {
-            Debug.Log($"NetworkPlayer Spawned. HasStateAuthority: {HasStateAuthority}, HasInputAuthority: {Object.HasInputAuthority}, Object: {Object.Id}");
+            Debug.Log($"[NetworkPlayer] Spawned. HasStateAuthority: {HasStateAuthority}, " +
+                      $"HasInputAuthority: {Object.HasInputAuthority}, " +
+                      $"Object: {Object.Id}, " +
+                      $"Parent: {(transform.parent ? transform.parent.name : "None")}, " +
+                      $"Scene: {gameObject.scene.name}");
 
             if (Object.HasInputAuthority)
             {
                 _cameraTargetBinder.Initialize();
             }
 
-            if (!Object.HasStateAuthority)
-            {
-                Initialize();
-            }
+            // Автоматическая инициализация для всех игроков на всех клиентах
+            AutoInitialize();
         }
 
-        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public async void RPC_RequestSpawnPlayer(PlayerRef player, Vector3 position, Quaternion rotation)
+        private void Update()
         {
-            if (!HasStateAuthority) return;
-            
-            Debug.Log($"Server received spawn request from player {player}");
-            try
+            if (!IsInitialized) return;
+
+            if (_previousPlayerState != CurrentPlayerState)
             {
-                var runner = Object.Runner;
-                if (runner == null)
-                {
-                    Debug.LogError("Runner is null in RPC_RequestSpawnPlayer");
-                    return;
-                }
-
-                var playerPrefab = await _assetProvider.Load<GameObject>(AssetLabels.PLAYER);
-                if (playerPrefab == null)
-                {
-                    Debug.LogError($"Failed to load player prefab for {player}");
-                    return;
-                }
-
-                var networkObject = playerPrefab.GetComponent<NetworkObject>();
-                if (networkObject == null)
-                {
-                    Debug.LogError($"Player prefab does not have NetworkObject component for {player}");
-                    return;
-                }
-
-                var spawnedObject = await runner.SpawnAsync(networkObject, position, rotation, player);
-                if (spawnedObject == null)
-                {
-                    Debug.LogError($"Failed to spawn player for {player}");
-                    return;
-                }
-
-                Debug.Log($"Server spawned player for {player}");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Error in RPC_RequestSpawnPlayer: {e.Message}");
+                OnPlayerStateChanged(_previousPlayerState, CurrentPlayerState);
+                _previousPlayerState = CurrentPlayerState;
             }
         }
 
@@ -146,19 +192,47 @@ namespace CodeBase.Gameplay.Player
         {
             if (!IsInitialized) return;
 
-            if (GetInput(out NetworkInputData data))
+            // FallDamageService должен тикать для всех авторитетных клиентов постоянно
+            if ((HasStateAuthority || Object.HasInputAuthority) && _fallDamageService != null)
             {
-                _stateMachine.Tick(data);
+                _fallDamageService.Tick();
+            }
 
-                if (HasStateAuthority)
+            // Только авторитетный клиент (хост или владелец персонажа) обновляет state machine
+            if (HasStateAuthority || Object.HasInputAuthority)
+            {
+                if (GetInput(out NetworkInputData data))
                 {
-                    _fallDamageService.Tick();
+                    _stateMachine.Tick(data);
+                }
+                else if (Object.HasInputAuthority)
+                {
+                    // Для локального игрока без актуального ввода используем текущий локальный ввод
+                    var localInput = _inputService.GetInput();
+                    _stateMachine.Tick(localInput);
+                }
+                else
+                {
+                    // Пустой ввод для сервера без данных
+                    var emptyInput = new NetworkInputData();
+                    _stateMachine.Tick(emptyInput);
                 }
             }
-            else if (Object.HasInputAuthority)
+        }
+
+        // Обработчик изменения сетевого состояния
+        private void OnPlayerStateChanged(PlayerStateType oldState, PlayerStateType newState)
+        {
+            _playerAnimator.Play(newState);
+        }
+
+        // Метод вызывается локальной state machine при изменении состояния
+        private void OnLocalStateChanged(PlayerStateType newState)
+        {
+            if (HasStateAuthority)
             {
-                var localInput = _inputService.GetInput();
-                _stateMachine.Tick(localInput);
+                CurrentPlayerState = newState;
+                Debug.Log($"[NetworkPlayer] Updated network state to {newState} for {Object.Id}");
             }
         }
 
@@ -181,9 +255,9 @@ namespace CodeBase.Gameplay.Player
                 _healthUI.Clear();
             }
 
-            if (_stateMachine != null && _playerAnimator != null)
+            if (_stateMachine != null)
             {
-                _stateMachine.OnStateChanged -= _playerAnimator.Play;
+                _stateMachine.OnStateChanged -= OnLocalStateChanged;
             }
 
             if (_messageService != null)
@@ -200,6 +274,7 @@ namespace CodeBase.Gameplay.Player
 
         private void OnDestroy()
         {
+            Debug.Log($"[NetworkPlayer] OnDestroy called. Instance: {GetHashCode()}, GameObject: {gameObject.name}");
             Unsubscribe();
         }
     }

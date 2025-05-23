@@ -6,64 +6,75 @@ namespace CodeBase.Gameplay.Player
 {
     public class PlayerMovement : NetworkBehaviour
     {
-        [SerializeField] private CharacterController _characterController;
+        [SerializeField] private NetworkCharacterController _networkController;
 
-        private const float _GRAVITY = -9.81f;
+        [Networked] private float NetworkRotation { get; set; }
 
-        private readonly float _rotationSpeed = 120f;
-        private readonly float _jumpForce = 5f;
+        private readonly float _rotationSpeed = 60f;
         private float _moveSpeed = 5f;
-        private Vector3 _velocity;
-        private bool _isGrounded;
 
         public void Initialize(float moveSpeed)
         {
             _moveSpeed = moveSpeed;
+            _networkController.maxSpeed = moveSpeed;
         }
 
         public void Move(NetworkInputData input)
         {
-            if (!_characterController) return;
+            if (_networkController == null) return;
 
             var direction = new Vector2(input.MoveX, input.MoveY).normalized;
-
             float forwardInput = direction.y;
             float turnInput = direction.x;
 
-            if (Mathf.Abs(turnInput) > 0.01f)
+            if (Mathf.Abs(turnInput) > 0.01f && (HasStateAuthority || Object.HasInputAuthority))
             {
                 float rotationAmount = turnInput * _rotationSpeed * Runner.DeltaTime;
-                _characterController.transform.Rotate(0f, rotationAmount, 0f);
+                NetworkRotation += rotationAmount;
+
+                if (NetworkRotation >= 360f) NetworkRotation -= 360f;
+                if (NetworkRotation < 0f) NetworkRotation += 360f;
             }
+
+            transform.rotation = Quaternion.Euler(0, NetworkRotation, 0);
+
+            Vector3 moveDirection = Vector3.zero;
 
             if (Mathf.Abs(forwardInput) > 0.01f)
             {
-                Vector3 moveDirection = _characterController.transform.forward * forwardInput;
-                _characterController.Move(moveDirection * _moveSpeed * Runner.DeltaTime);
+                moveDirection = transform.forward * forwardInput * _moveSpeed;
             }
 
-            bool isGrounded = _characterController.isGrounded;
-
-            if (isGrounded)
+            // Прыжок
+            if (input.Jump && _networkController.Grounded)
             {
-                _velocity.y = -0.5f;
-
-                if (input.Jump)
-                {
-                    _velocity.y = _jumpForce;
-                }
-            }
-            else
-            {
-                _velocity.y += _GRAVITY * Runner.DeltaTime;
+                _networkController.Jump();
             }
 
-            _characterController.Move(_velocity * Runner.DeltaTime);
+            // ВСЕГДА вызываем Move() для обеспечения работы гравитации
+            _networkController.Move(moveDirection);
         }
 
         public void Stop()
         {
+            if (_networkController != null)
+            {
+                // Вызываем Move() с нулевым направлением для поддержания гравитации
+                _networkController.Move(Vector3.zero);
+            }
+        }
 
+        // Принудительное обновление для поддержания гравитации в состоянии покоя
+        public override void FixedUpdateNetwork()
+        {
+            if (_networkController == null) return;
+            
+            // Если нет актуального ввода, все равно поддерживаем физику
+            if (!GetInput(out NetworkInputData input))
+            {
+                // Применяем гравитацию даже без ввода
+                _networkController.Move(Vector3.zero);
+            }
         }
     }
 }

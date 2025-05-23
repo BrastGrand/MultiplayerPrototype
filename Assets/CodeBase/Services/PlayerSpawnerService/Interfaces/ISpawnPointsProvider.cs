@@ -5,6 +5,7 @@ namespace CodeBase.Services.PlayerSpawnerService
 {
     public interface ISpawnPointsProvider
     {
-        IReadOnlyList<Transform> SpawnPoints { get; }
+        List<Transform> SpawnPoints { get; }
+        Transform GetRandomPoint { get; }
     }
 }
